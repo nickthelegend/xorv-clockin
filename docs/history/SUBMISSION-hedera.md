@@ -1,3 +1,6 @@
+> **History.** Submission for the Hedera x402 bounty. The CLOCK IN submission is [`clockin/SUBMISSION.md`](../../clockin/SUBMISSION.md).
+
+
 # Hedera x402 bounty — submission
 
 **Xorv turns idle AI subscription quota into a paid marketplace, settled per job

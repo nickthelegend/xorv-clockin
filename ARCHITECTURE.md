@@ -1,3 +1,6 @@
+> **Scope note.** This document describes the Hedera broker architecture (`services/broker`, `packages/*`). The Solana port replaces the broker with an on-chain program — see [README → How it works on Solana](README.md#how-it-works-on-solana) and [`clockin/PORT-PLAN.md`](clockin/PORT-PLAN.md).
+
+
 # Architecture
 
 How Xorv is put together, and why the awkward parts are the way they are.
