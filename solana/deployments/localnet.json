@@ -1,0 +1,14 @@
+{
+  "initTx": "4aqcuKG12A4TVm54dCwE12C6YKQC5eq9DjHTQYDt9anYWFEAELxpkFVsXKBujeD9kgVbGZDtnwrLVyqpGbYDpA2B",
+  "cluster": "localnet",
+  "programId": "GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw",
+  "config": "Ge5zYWcR6MQ7ECZ9s2y6NpGe5ykGt2XCvnJoXfX1dgQJ",
+  "mint": "5yW5niiHRs2iU4nkpkMqNGE7ZR1EPpSVmvzAJsnQn5Rw",
+  "mintLabel": "tSKR — devnet stand-in for SKR (SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3 on mainnet)",
+  "admin": "Ftk563Wp1tdf5U1nyzF1BQwShvKPdHT9VY1FKGWo8ftE",
+  "dailyReward": "25000000",
+  "minBond": "10000000",
+  "slashBps": 2000,
+  "jobTimeout": 600,
+  "dayLength": 86400
+}
