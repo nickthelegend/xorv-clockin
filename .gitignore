@@ -64,3 +64,4 @@ apps/mobile/ios/
 apps/mobile/.expo/
 .cache/
 .dev-ledger/
+apps/mobile/.claude/
