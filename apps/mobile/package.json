@@ -1,5 +1,5 @@
 {
-  "name": "mobile",
+  "name": "xorv-mobile",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
@@ -32,9 +32,13 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "postinstall": "./scripts/fix-spaces.sh",
+    "typecheck": "tsc --noEmit",
+    "smoke:chain": "tsx scripts/chain-smoke.mts",
+    "e2e:job": "tsx scripts/e2e-job.mts"
   },
   "private": true
 }

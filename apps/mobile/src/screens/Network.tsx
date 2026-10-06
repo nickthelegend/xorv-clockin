@@ -21,12 +21,12 @@ export default function Network() {
         The network
       </T>
       <Card>
-        <Row style={{ gap: 12 }}>
+        <Row style={{ gap: 12, alignItems: 'flex-start' }}>
           <Stat label="Live" value={`${live.length}/${providers.length}`} sub="nodes" />
           <Stat label="Jobs" value={`${config?.jobs ?? 0}`} sub="all time" />
           <Stat label="Bonded" value={fmtSkr(bonded, 0)} sub={SKR_LABEL} />
         </Row>
-        <Row style={{ gap: 12, marginTop: 16 }}>
+        <Row style={{ gap: 12, marginTop: 16, alignItems: 'flex-start' }}>
           <Stat label="Paid out" value={fmtSkr(earned, 0)} sub={`${SKR_LABEL} to providers`} />
           <Stat label="Min bond" value={fmtSkr(config?.minBond ?? 0n, 0)} sub={SKR_LABEL} />
           <Stat label="Slash" value={`${(config?.slashBps ?? 0) / 100}%`} sub="of bond, to buyer" />

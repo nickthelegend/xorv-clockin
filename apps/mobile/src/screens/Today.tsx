@@ -93,7 +93,7 @@ export default function Today({ onAsk, onToast }: { onAsk: () => void; onToast: 
   async function getSol() {
     try {
       await airdrop();
-      onToast('Devnet SOL received', 'ok');
+      onToast(`${cluster === 'devnet' ? 'Devnet' : 'Local'} SOL received`, 'ok');
       refresh();
     } catch (e) {
       onToast(humanError(e), 'err');
@@ -190,9 +190,9 @@ export default function Today({ onAsk, onToast }: { onAsk: () => void; onToast: 
       </View>
 
       <Card>
-        <Row style={{ gap: 12 }}>
+        <Row style={{ gap: 12, alignItems: 'flex-start' }}>
           <Stat label={SKR_LABEL} value={fmtSkr(skr)} sub="devnet stand-in for SKR" />
-          <Stat label="Best streak" value={`${user?.bestStreak ?? 0}`} sub={`${user?.checkins ?? 0} clock-ins`} />
+          <Stat label="Best" value={`${user?.bestStreak ?? 0}d`} sub={`${user?.checkins ?? 0} clock-ins`} />
           <Stat label="SOL" value={sol.toFixed(3)} sub={CLUSTERS[cluster].label} />
         </Row>
       </Card>

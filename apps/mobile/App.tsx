@@ -255,7 +255,7 @@ function Shell() {
                 bottom: 0,
                 paddingBottom: Math.max(insets.bottom, 12),
                 paddingTop: 10,
-                backgroundColor: 'rgba(10,10,10,0.97)',
+                backgroundColor: C.surface,
                 borderTopWidth: 1,
                 borderTopColor: C.line,
                 flexDirection: 'row',
