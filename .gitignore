@@ -50,3 +50,15 @@ videos/*/node_modules/
 videos/*/.thumbnails/
 videos/*/.waveform-cache/
 videos/*/audio_engine_meta.json
+
+# Solana / CLOCK IN
+.keys/
+target/
+.anchor/
+test-ledger/
+clockin/apk/
+*.apk
+*.aab
+apps/mobile/android/
+apps/mobile/ios/
+apps/mobile/.expo/
