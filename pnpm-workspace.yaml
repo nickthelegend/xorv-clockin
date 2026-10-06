@@ -2,6 +2,9 @@ packages:
   - "packages/*"
   - "services/*"
   - "apps/*"
+  - "solana"
+  # The Expo app is installed on its own (npm) — Metro and pnpm symlinks don't mix.
+  - "!apps/mobile"
 
 # The Hiero SDK ships protobuf builders that run on install.
 onlyBuiltDependencies:
@@ -9,3 +12,5 @@ onlyBuiltDependencies:
   - "@hiero-ledger/proto"
   - esbuild
   - sharp
+  - bufferutil
+  - utf-8-validate

@@ -1,0 +1,26 @@
+[toolchain]
+anchor_version = "0.32.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+xorv = "GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw"
+
+[programs.devnet]
+xorv = "GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw"
+
+[provider]
+cluster = "localnet"
+wallet = "../.keys/devnet-deployer.json"
+
+[scripts]
+test = "pnpm exec tsx --test tests/xorv.test.ts"
+
+[test]
+startup_wait = 10000
+
+[test.validator]
+bind_address = "127.0.0.1"
+rpc_port = 4510

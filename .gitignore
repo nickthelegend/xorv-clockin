@@ -62,3 +62,4 @@ clockin/apk/
 apps/mobile/android/
 apps/mobile/ios/
 apps/mobile/.expo/
+.cache/

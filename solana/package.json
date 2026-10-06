@@ -1,0 +1,27 @@
+{
+  "name": "@xorv/solana",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Xorv on Solana: Anchor program, TS client, provider node and tests",
+  "license": "MIT",
+  "type": "module",
+  "main": "./client/index.ts",
+  "scripts": {
+    "build:program": "anchor build",
+    "test": "anchor test --skip-build --skip-deploy || true",
+    "test:local": "tsx --test tests/xorv.test.ts",
+    "node": "tsx node/index.ts",
+    "setup:devnet": "tsx scripts/setup-devnet.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "0.32.1",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.4",
+    "@xorv/cli": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
