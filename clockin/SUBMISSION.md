@@ -51,8 +51,8 @@ Everything end to end has been verified against a **local validator** running th
 ## Install the APK
 
 - File: `xorv-clockin.apk` (release, arm64-v8a + x86_64, signed with a per-app release key)
-- SHA-256: `1fda16b048eb2a363a538026d6b40723db0c076809d63d39e67a7818ada98fbd`
-- Install: `adb install xorv-clockin.apk`, or sideload on a Seeker. Direct download: https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk (v1.1.0, versionCode 3).
+- SHA-256: `07eafe5a49f5708c04e5ac1d7d8384f77f0541cf572bc4065ab1b89878c4cf89`
+- Install: `adb install xorv-clockin.apk`, or sideload on a Seeker. Direct download: https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk (v1.1.1, versionCode 4).
 - First run: **Connect wallet** (MWA, devnet) or **Use a dev wallet**. Get devnet SOL from the wallet sheet. The app defaults to devnet; the wallet sheet can switch to a local validator.
 
 ## Screens

@@ -1,6 +1,6 @@
 # HANDOFF: Xorv on Solana (CLOCK IN)
 
-Status as of **Oct 7, 2026, ~19:00 IST** (polish round, 1.1.0). This file only claims what was actually run and seen.
+Status as of **Oct 7, 2026, ~20:00 IST** (1.1.1: liveness fix). This file only claims what was actually run and seen.
 
 ## Verified working (with evidence)
 
@@ -43,9 +43,27 @@ Status as of **Oct 7, 2026, ~19:00 IST** (polish round, 1.1.0). This file only c
 ## APK
 
 - Path: `/Volumes/Extreme SSD/Projects/clockin/apks/xorv-clockin.apk` (48.8 MB), also the `clockin-v1` release asset (uploaded with `--clobber`, and the download's hash re-checked)
-- SHA-256: `1fda16b048eb2a363a538026d6b40723db0c076809d63d39e67a7818ada98fbd`
-- Package `tech.loompad.xorv`, version 1.1.0 / versionCode 3, signer SHA-256 `0bba90127978ca29cf02e3593263c5f70105ce38590bd96be879c1fa20c631c0`
+- SHA-256: `07eafe5a49f5708c04e5ac1d7d8384f77f0541cf572bc4065ab1b89878c4cf89`
+- Package `tech.loompad.xorv`, version 1.1.1 / versionCode 4, signer SHA-256 `0bba90127978ca29cf02e3593263c5f70105ce38590bd96be879c1fa20c631c0`
 - Rebuild: `cd apps/mobile && ./scripts/build-apk.sh` (prebuild if needed, patches release signing from the external properties file, Gradle heap capped at 3 GB)
+
+## 1.1.1: provider liveness fix (Oct 7)
+
+**Bug:** a stopped provider kept showing **Live** for 3 minutes. The phone-side matcher trusted that flag, so a paid job could go to a dead node.
+
+**Fix:** liveness now comes from heartbeat age, relative to the 30 s heartbeat (`apps/mobile/src/chain.ts`):
+- **Live:** under 60 s.
+- **Idle (amber, "last seen …"):** under 5 min.
+- **Offline:** beyond 5 min.
+
+`autoPick` returns only Live nodes. Idle nodes rank last and need an explicit "Pay anyway" confirmation. Offline nodes can't be picked. Ask and Network tick every second, and the provider node now heartbeats every 30 s.
+
+**Tests and verification:**
+- `cd apps/mobile && npm test` passes 8/8 (thresholds and matcher ordering).
+- Verified on the iPhone 17e simulator with the echo node: Live → Idle (~60 s) → Offline (5 min), Pay guarded, restart returns to Live.
+- Before/after captures are census shots 32–39.
+
+**APK:** 1.1.1 (versionCode 4), same keystore, built under the lock, uploaded with `--clobber`, hash re-checked.
 
 ## Polish round (1.1.0, Oct 7)
 
@@ -73,7 +91,7 @@ This work was done on branch `polish` and merged to main. It addresses the orche
   - a census of 31 screens in `clockin/screens/all/` (`INDEX.md`, `CONTACT-SHEET.png`), captured on the iPhone 17e simulator against a local validator with the echo provider;
   - before/after comparisons of the P0 fixes in `clockin/screens/polish/compare-0{1,2,3}.png`;
   - `solana/scripts/localnet-test.sh` passes 8/8, and the app typecheck (`npx tsc --noEmit`) is clean.
-- **APK:** version 1.1.0 / versionCode 3, built under the shared native-build lock with the same keystore, uploaded with `--clobber`, and the downloaded asset's SHA-256 re-checked.
+- **APK:** version 1.1.1 / versionCode 4, built under the shared native-build lock with the same keystore, uploaded with `--clobber`, and the downloaded asset's SHA-256 re-checked.
 
 ## Android audit (Round 2, Oct 7; static inspection only, the APK was never run on a device)
 

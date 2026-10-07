@@ -30,8 +30,8 @@ The Solana version is **phone-first and brokerless**:
 
 ## Get the app
 
-**[Download the Android APK](https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk)**: v1.1.0 (versionCode 3), release-signed.
-SHA-256 `1fda16b048eb2a363a538026d6b40723db0c076809d63d39e67a7818ada98fbd`. Every screen and state is in
+**[Download the Android APK](https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk)**: v1.1.1 (versionCode 4), release-signed.
+SHA-256 `07eafe5a49f5708c04e5ac1d7d8384f77f0541cf572bc4065ab1b89878c4cf89`. Every screen and state is in
 [`clockin/screens/all/`](clockin/screens/all/INDEX.md).
 
 <img src="clockin/screens/all/CONTACT-SHEET.png" alt="Xorv screen census" width="100%" />
