@@ -1,6 +1,6 @@
 # HANDOFF: Xorv on Solana (CLOCK IN)
 
-Status as of **Oct 6, 2026, ~21:00 IST**. This file only claims what was actually run and seen.
+Status as of **Oct 7, 2026, ~10:45 IST** (Round 2: Android audit). This file only claims what was actually run and seen.
 
 ## Verified working (with evidence)
 
@@ -42,10 +42,38 @@ Status as of **Oct 6, 2026, ~21:00 IST**. This file only claims what was actuall
 
 ## APK
 
-- Path: `/Volumes/Extreme SSD/Projects/clockin/apks/xorv-clockin.apk` (48.8 MB)
-- SHA-256: `5aaf0e9259f45a2a12e168906c114c2c7325305193d213a5aa9eb5dd5bbabcb6`
-- Package `tech.loompad.xorv`, versionCode 1, signer SHA-256 `0bba90127978ca29cf02e3593263c5f70105ce38590bd96be879c1fa20c631c0`
+- Path: `/Volumes/Extreme SSD/Projects/clockin/apks/xorv-clockin.apk` (48.8 MB), also the `clockin-v1` release asset (uploaded with `--clobber`, and the download's hash re-checked)
+- SHA-256: `9c2927aa8d53abc2c9e92e6944d4d14a0e1ac4571c1a0eadee5cb905fce1959a`
+- Package `tech.loompad.xorv`, version 1.0.1 / versionCode 2, signer SHA-256 `0bba90127978ca29cf02e3593263c5f70105ce38590bd96be879c1fa20c631c0`
 - Rebuild: `cd apps/mobile && ./scripts/build-apk.sh` (prebuild if needed, patches release signing from the external properties file, Gradle heap capped at 3 GB)
+
+## Android audit (Round 2, Oct 7; static inspection only, the APK was never run on a device)
+
+Inspected the rebuilt APK with `aapt2 dump badging/xmltree`, `apksigner`, `unzip` and `strings`, plus the source.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Package / version | `tech.loompad.xorv`, **1.0.1 / versionCode 2** (bumped from 1) ✅ |
+| 1 | minSdk / targetSdk | 24 / 36 (Expo 57 default; above the 34/35 floor) ✅ |
+| 1 | Permissions | INTERNET, POST_NOTIFICATIONS, VIBRATE, ACCESS_NETWORK_STATE, WAKE_LOCK, plus expo-notifications' boot and badge permissions. **SYSTEM_ALERT_WINDOW, READ/WRITE_EXTERNAL_STORAGE and USE_FINGERPRINT are blocked** via `android.blockedPermissions` ✅ |
+| 1 | Cleartext | **Fixed:** the app-wide `usesCleartextTraffic=true` is gone. `plugins/withLocalCleartext.js` adds a `network_security_config` that allows cleartext only to 10.0.2.2, 127.0.0.1 and localhost (for the optional "Local validator (dev)" cluster); everything else is HTTPS-only ✅ |
+| 1 | `<queries>` for MWA | `solana-wallet` VIEW/BROWSABLE intent present (contributed by the MWA library), plus https VIEW for explorer links ✅ |
+| 2 | MWA native module | `com/solanamobile/mobilewalletadapter/reactnative/*` found in classes*.dex (22 references) ✅ |
+| 2 | `transact()` | `authorize({ chain: 'solana:devnet', identity, auth_token })`. Identity is `{ name: 'Xorv', uri: 'https://xorv.vercel.app', icon: 'brand/xorv-mark.svg' }`; **fixed** because the old icon path returned 404 |
+| 2 | Re-authorize / no wallet | The cached auth_token is reused (MWA 2.x reauthorize); on failure the token is cleared and authorize is retried. **Added** an "Install a Solana wallet" card when no MWA wallet is installed (WalletNotInstalled / ERROR_WALLET_NOT_FOUND / ActivityNotFound), with the labelled dev wallet as fallback ✅ (logic only, untested on hardware) |
+| 3 | JS bundle | `assets/index.android.bundle` present, **Hermes bytecode** (magic `c61fbc03`), so not loaded from Metro ✅ |
+| 3 | Baked URLs | `api.devnet.solana.com` present; no `192.168.*`. `10.0.2.2` and `127.0.0.1` appear only as the opt-in Local validator cluster (default is devnet) ⚠️ intentional |
+| 4 | Polyfills | `index.ts` imports `react-native-get-random-values` then sets `global.Buffer` before any web3.js import. `TextEncoder` usage was replaced with `Buffer.byteLength` ✅ |
+| 5 | Hardware back | **Added** a `BackHandler` that goes job detail → list → Today → exit; the wallet sheet closes via `onRequestClose` ✅ |
+| 5 | Notifications | Channels `streak` and **`jobs`** (added) created on Android 8+. The Android 13 permission prompt goes through `requestPermissionsAsync` before the first schedule ✅ |
+| 5 | Keyboard / edge-to-edge | **Added** `KeyboardAvoidingView` and on-drag dismiss. Safe-area insets are used for the header and tab bar; the wallet sheet is `statusBarTranslucent` + `navigationBarTranslucent` with bottom-inset padding (Android 15 edge-to-edge) ✅ |
+| 5 | Deep links / WebView / fonts | `xorv://` scheme registered; explorer links open through `Linking`. No WebView; system fonts only ✅ |
+| 6 | Signing | `apksigner`: signer `CN=Xorv, O=Loompad, C=IN`, SHA-256 `0bba9012…c631c0`. This is the **same keystore** as the first build (no new key) ✅ |
+| 7 | ABIs / size | arm64-v8a + x86_64, 48.8 MB ✅ |
+
+After these changes the main flow was re-verified on the iPhone 17e simulator against a local validator: dev wallet, airdrop, clock-in (+25 tSKR), Ask (byte counter 43/512), job paid into escrow, delivered by the provider node (echo adapter; Ollama was not used this round), and "✓ sha-256 matches chain". The simulator, Metro and validator were then stopped.
+
+**Still unverified:** any run on Android hardware, real MWA signing, notification delivery on Android, the back gesture, and keyboard behaviour on Android 15.
 
 ## Decisions made autonomously
 
