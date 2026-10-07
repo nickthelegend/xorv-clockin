@@ -3,5 +3,5 @@
   "compilerOptions": {
     "strict": true
   },
-  "exclude": ["scripts", "plugins", "node_modules", "android", "ios"]
+  "exclude": ["scripts", "plugins", "test", "node_modules", "android", "ios"]
 }

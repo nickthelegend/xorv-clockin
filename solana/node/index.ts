@@ -6,7 +6,7 @@
  *
  * What it does, forever:
  *   1. registers once (clock-in for tSKR, then stake the bond);
- *   2. heartbeats every minute so phones see it as live, and clocks in daily;
+ *   2. heartbeats every 30 s so phones see it as live, and clocks in daily;
  *   3. polls for Funded jobs addressed to it, runs each through a real agent
  *      CLI adapter from @xorv/cli (Claude Code by default), writes the answer
  *      on-chain in chunks — the final chunk settles the escrow — or rejects
@@ -208,7 +208,7 @@ async function main() {
       .rpc()
       .catch((e) => log("heartbeat failed:", String(e).slice(0, 120)));
   await beat();
-  setInterval(beat, 60_000);
+  setInterval(beat, 30_000); // must match HEARTBEAT_INTERVAL in apps/mobile/src/chain.ts
   setInterval(checkIn, 60 * 60_000);
   log("live — waiting for jobs");
   for (;;) {

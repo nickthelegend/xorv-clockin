@@ -6,12 +6,12 @@ import { Buffer } from 'buffer';
  */
 import { PublicKey } from '@solana/web3.js';
 import * as Haptics from 'expo-haptics';
-import React, { useMemo, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
-import { fmtSkr, isLive, MAX_PROMPT, postJobIx, Provider, reputation } from '../chain';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, TextInput, View } from 'react-native';
+import { ageLabel, autoPick, fmtSkr, heartbeatAge, isLive, LIVE_MAX, liveness, Liveness, MAX_PROMPT, postJobIx, Provider, reputation } from '../chain';
 import { SKR_LABEL } from '../config';
 import { useData } from '../data';
-import { Badge, Button, C, Card, Label, Notice, Row, Skeleton, T } from '../ui';
+import { Badge, Button, C, Card, Label, LivenessBadge, Notice, Row, Skeleton, T } from '../ui';
 import { humanError, useWallet } from '../wallet';
 import { rememberSig } from './Jobs';
 
@@ -37,12 +37,21 @@ export default function Ask({
   const [picked, setPicked] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    // Heartbeat ages and liveness are a function of the clock: re-render every second.
+    const i = setInterval(() => tick((x) => x + 1), 1000);
+    return () => clearInterval(i);
+  }, []);
   const t = now();
 
   const live = useMemo(() => providers.filter((p) => isLive(p, t)), [providers, t]);
-  const chosen: Provider | undefined =
-    providers.find((p) => p.address.toBase58() === picked && p.active) ?? live[0] ?? providers.find((p) => p.active);
-  const chosenLive = !!chosen && isLive(chosen, t);
+  // A manual pick sticks unless that node has gone fully offline; otherwise
+  // only a LIVE node is ever auto-selected.
+  const manual = providers.find((p) => p.address.toBase58() === picked && liveness(p, t) !== 'offline');
+  const chosen: Provider | undefined = manual ?? autoPick(providers, t);
+  const chosenState: Liveness | null = chosen ? liveness(chosen, t) : null;
+  const chosenLive = chosenState === 'live';
   const price = chosen?.price ?? 0n;
   const enough = skr >= price;
   const bytes = Buffer.byteLength(prompt, 'utf8');
@@ -50,6 +59,20 @@ export default function Ask({
   const minutes = Math.round((config?.jobTimeout ?? 600) / 60);
   const slashPct = (config?.slashBps ?? 2000) / 100;
   const slashAmt = chosen ? (chosen.bond * BigInt(config?.slashBps ?? 2000)) / 10_000n : 0n;
+
+  function confirmThenPost() {
+    if (!chosen) return;
+    if (chosenState === 'live') return post();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      `${chosen.name} looks idle`,
+      `Its last heartbeat was ${ageLabel(heartbeatAge(chosen, t))} ago, so it may be gone. If it doesn't answer within ${minutes} min you get your ${SKR_LABEL} back plus ${fmtSkr(slashAmt)} from its bond, but you'll wait for it.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Pay anyway', style: 'destructive', onPress: () => post() },
+      ],
+    );
+  }
 
   async function post() {
     if (!publicKey || !chosen || !prompt.trim()) return;
@@ -173,13 +196,16 @@ export default function Ask({
         />
       ) : (
         providers.slice(0, 4).map((p) => {
-          const on = isLive(p, t);
+          const state = liveness(p, t);
           const sel = chosen?.address.equals(p.address);
           return (
             <Card
               key={p.address.toBase58()}
-              onPress={() => setPicked(p.address.toBase58())}
-              style={sel ? { borderColor: C.fg } : undefined}
+              onPress={state === 'offline' ? undefined : () => setPicked(p.address.toBase58())}
+              style={[
+                sel ? { borderColor: state === 'idle' ? C.warn : C.fg } : {},
+                state === 'offline' ? { opacity: 0.55 } : {},
+              ]}
             >
               <Row style={{ justifyContent: 'space-between', gap: 10 }}>
                 <T size={17} weight="700" numberOfLines={1} style={{ flex: 1 }}>
@@ -190,7 +216,7 @@ export default function Ask({
                 </T>
               </Row>
               <Row style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                <Badge tone={on ? 'live' : 'neutral'}>{on ? 'Live' : 'Offline'}</Badge>
+                <LivenessBadge state={state} age={ageLabel(heartbeatAge(p, t))} active={p.active} />
                 <Badge tone="neutral" dot={false}>
                   {p.model || 'agent'}
                 </Badge>
@@ -206,7 +232,11 @@ export default function Ask({
         <Notice
           tone="warn"
           title="No node is live right now"
-          body={`You can still post. If nobody answers within ${minutes} min you get your ${SKR_LABEL} back, plus ${slashPct}% of the provider's bond.`}
+          body={
+            providers.some((p) => liveness(p, t) === 'idle')
+              ? `Nobody has sent a heartbeat in the last ${LIVE_MAX}s. You can still pick an idle node above and post; if it doesn't answer within ${minutes} min you get your ${SKR_LABEL} back plus ${slashPct}% of its bond.`
+              : 'Every provider is offline. Check back soon: nodes clock in when their operators are online.'
+          }
         />
       )}
 
@@ -243,8 +273,15 @@ export default function Ask({
         <Button title={`Clock in to earn ${SKR_LABEL}`} onPress={onClockIn} />
       ) : (
         <Button
-          title={!chosen ? 'No provider available' : `Pay ${fmtSkr(price)} ${SKR_LABEL} & ask`}
-          onPress={post}
+          title={
+            !chosen
+              ? 'No live provider right now'
+              : chosenLive
+                ? `Pay ${fmtSkr(price)} ${SKR_LABEL} & ask`
+                : `Pay ${fmtSkr(price)} ${SKR_LABEL} to an idle node…`
+          }
+          kind={chosen && !chosenLive ? 'ghost' : 'primary'}
+          onPress={confirmThenPost}
           busy={busy}
           disabled={!chosen || !prompt.trim()}
         />
@@ -255,8 +292,8 @@ export default function Ask({
         </T>
       )}
       {chosen && !chosenLive && enough && (
-        <T size={13} c={C.fg3} style={{ textAlign: 'center' }}>
-          {chosen.name} is offline. Pick a live node for a fast answer.
+        <T size={13} c={C.warn} style={{ textAlign: 'center', lineHeight: 19 }}>
+          {chosen.name} last checked in {ageLabel(heartbeatAge(chosen, t))} ago. You'll be asked to confirm before paying.
         </T>
       )}
     </View>

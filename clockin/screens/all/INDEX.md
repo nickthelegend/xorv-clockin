@@ -1,4 +1,4 @@
-# XORV 1.1.0: screen census (iOS simulator, iPhone 17e)
+# XORV 1.1.x: screen census (iOS simulator, iPhone 17e)
 
 These were captured in flow order against a local validator (`solana/scripts/localnet-dev.sh`, with `JOB_TIMEOUT=90` so that a refund becomes reachable within the capture session). The provider node ran the **echo adapter**, and its answers state that no AI model ran. These are debug builds with the Expo dev-menu floating button hidden through `defaults write … EXDevMenuShowFloatingActionButton NO`. A release build never has that button. `CONTACT-SHEET.png` shows every capture at a glance.
 
@@ -42,3 +42,27 @@ These were captured in flow order against a local validator (`solana/scripts/loc
 - the Android back gesture;
 - the evening "streak at risk" notification, which is scheduled for 20:00 local, so it can't be captured in-session;
 - the loading skeleton, which is too brief against a local RPC.
+
+## 1.1.1: provider liveness fix
+
+**Bug:** after a provider node was stopped, Network and Ask kept showing **Live**, because liveness used a 180 s window. The phone-side matcher used the same flag, so a paid job could be routed to a dead node.
+
+**Fix:** liveness is now derived from heartbeat age, relative to the node's 30 s heartbeat interval (`apps/mobile/src/chain.ts`):
+- **Live:** under 60 s (2× the interval).
+- **Idle (amber):** under 5 min, labelled "last seen …".
+- **Offline:** beyond 5 min, or paused by the operator.
+
+The matcher auto-picks only Live nodes. Idle nodes rank after every Live node, and paying one needs an explicit confirmation. Offline nodes can't be picked. Badges tick every second. Unit tests: `apps/mobile/test/liveness.test.mts` (8/8).
+
+| # | State | What it shows |
+|---|---|---|
+| 32 | **Before (1.1.0)** | Node stopped 155 s earlier, yet still badged **Live** and counted "1 of 1 nodes live" |
+| 33 | After: Network, idle | "Idle · last seen 4m 35s ago" (amber); "0 of 1 nodes live" |
+| 34 | After: Network, offline | Past 5 min: "Offline · last seen 5m 09s ago" |
+| 35 | After: Ask, only offline | The card can't be selected; Pay reads "No live provider right now" and is disabled |
+| 36 | After: Ask, live | Node restarted: "Live · 6s ago", auto-selected, normal Pay |
+| 37 | After: Ask, idle | 67 s after the node stopped: Idle, **not** auto-selected; Pay is disabled, with a warning explaining the refund |
+| 38 | After: Ask, idle picked by hand | Amber selection, ghost "Pay 2 tSKR to an idle node…" button, warning line |
+| 39 | After: confirm | "nivesh-macbook looks idle" dialog with Cancel / Pay anyway |
+
+All of these were verified on the iPhone 17e simulator against a local validator with the echo node: Live → Idle at about 60 s → Offline at 5 min, and a restart returned the node to Live.

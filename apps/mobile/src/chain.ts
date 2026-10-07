@@ -346,22 +346,66 @@ export async function fetchSkr(c: Connection, owner: PublicKey): Promise<bigint>
 // Product logic shared by screens
 // ---------------------------------------------------------------------------
 
-export const LIVE_WINDOW = 180; // seconds since the last heartbeat
+/**
+ * Liveness is derived from heartbeat age, relative to how often a node beats.
+ * The provider node sends `heartbeat` every HEARTBEAT_INTERVAL seconds (and
+ * every settlement also refreshes `last_seen`).
+ *
+ *   live     age < 2 × interval  — it has missed at most one beat
+ *   idle     age < IDLE_MAX      — probably gone; shown amber, "last seen …"
+ *   offline  beyond that, or deactivated by its operator
+ *
+ * The matcher only ever auto-picks a live node; idle nodes rank after every
+ * live one and need an explicit confirmation before a buyer pays them.
+ */
+export const HEARTBEAT_INTERVAL = 30;
+export const LIVE_MAX = 2 * HEARTBEAT_INTERVAL;
+export const IDLE_MAX = 300;
 
-export const isLive = (p: Provider, now: number) => p.active && now - p.lastSeen < LIVE_WINDOW;
+export type Liveness = 'live' | 'idle' | 'offline';
+
+export function liveness(p: Pick<Provider, 'active' | 'lastSeen'>, now: number): Liveness {
+  if (!p.active) return 'offline';
+  const age = Math.max(0, now - p.lastSeen);
+  if (age < LIVE_MAX) return 'live';
+  if (age < IDLE_MAX) return 'idle';
+  return 'offline';
+}
+
+export const isLive = (p: Pick<Provider, 'active' | 'lastSeen'>, now: number) => liveness(p, now) === 'live';
+
+/** Seconds since the last heartbeat, never negative. */
+export const heartbeatAge = (p: Pick<Provider, 'lastSeen'>, now: number) => Math.max(0, now - p.lastSeen);
+
+/** "12s", "4m 05s", "2h 10m" */
+export function ageLabel(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, '0')}s`;
+  return `${Math.floor(sec / 3600)}h ${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}m`;
+}
 
 /** Laplace-smoothed success rate: a new node starts at 50%, not 100%. */
-export const reputation = (p: Provider) => (p.completed + 1) / (p.completed + p.failed + 2);
+export const reputation = (p: Pick<Provider, 'completed' | 'failed'>) => (p.completed + 1) / (p.completed + p.failed + 2);
 
-/** The matcher the broker used to run, now on the phone: live → reputation → bond → price. */
-export function rankProviders(ps: Provider[], now: number): Provider[] {
+const LIVENESS_RANK: Record<Liveness, number> = { live: 0, idle: 1, offline: 2 };
+
+/**
+ * The matcher the broker used to run, now on the phone:
+ * liveness (live → idle → offline) → reputation → bond → price.
+ */
+export function rankProviders<P extends Provider>(ps: P[], now: number): P[] {
   return [...ps].sort(
     (a, b) =>
-      Number(isLive(b, now)) - Number(isLive(a, now)) ||
+      LIVENESS_RANK[liveness(a, now)] - LIVENESS_RANK[liveness(b, now)] ||
       reputation(b) - reputation(a) ||
-      Number(b.bond - a.bond) ||
-      Number(a.price - b.price),
+      (b.bond > a.bond ? 1 : b.bond < a.bond ? -1 : 0) ||
+      (a.price < b.price ? -1 : a.price > b.price ? 1 : 0),
   );
+}
+
+/** What the phone auto-selects: the best live provider, or nobody. */
+export function autoPick<P extends Provider>(ps: P[], now: number): P | undefined {
+  return rankProviders(ps, now).find((p) => isLive(p, now));
 }
 
 export const fmtSkr = (v: bigint, dp = 2) => {

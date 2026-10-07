@@ -2,12 +2,12 @@
  * Network — what the broker's /api/network used to show, read straight from
  * the program: every provider's bond, record and liveness.
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { fmtSkr, isLive, reputation, short } from '../chain';
+import { ageLabel, fmtSkr, heartbeatAge, isLive, liveness, reputation, short } from '../chain';
 import { SKR_LABEL } from '../config';
 import { useData } from '../data';
-import { Badge, C, Card, Notice, Row, Skeleton, T } from '../ui';
+import { C, Card, LivenessBadge, Notice, Row, Skeleton, T } from '../ui';
 
 function Big({ value, label }: { value: string; label: string }) {
   return (
@@ -24,6 +24,11 @@ function Big({ value, label }: { value: string; label: string }) {
 
 export default function Network() {
   const { providers, config, now, loading, error } = useData();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => tick((x) => x + 1), 1000);
+    return () => clearInterval(i);
+  }, []);
   const t = now();
   const live = providers.filter((p) => isLive(p, t));
   const bonded = providers.reduce((a, p) => a + p.bond, 0n);
@@ -69,20 +74,23 @@ export default function Network() {
         />
       )}
       {providers.map((p) => {
-        const on = isLive(p, t);
+        const state = liveness(p, t);
+        const on = state === 'live';
         const rep = reputation(p);
-        const beat = Math.max(0, t - p.lastSeen);
+        const beat = heartbeatAge(p, t);
         return (
           <Card key={p.address.toBase58()}>
             <Row style={{ justifyContent: 'space-between', gap: 10 }}>
               <T size={18} weight="800" numberOfLines={1} style={{ flex: 1 }}>
                 {p.name}
               </T>
-              <Badge tone={on ? 'live' : 'neutral'}>{on ? 'Live' : 'Offline'}</Badge>
             </Row>
             <T size={14} c={C.fg2} style={{ marginTop: 4 }}>
               {p.model || 'agent'} · {fmtSkr(p.price)} {SKR_LABEL} per job
             </T>
+            <View style={{ marginTop: 10 }}>
+              <LivenessBadge state={state} age={ageLabel(beat)} active={p.active} />
+            </View>
 
             <Row style={{ justifyContent: 'space-between', marginTop: 16 }}>
               <T size={14} c={C.fg2}>
@@ -117,7 +125,7 @@ export default function Network() {
               ))}
             </Row>
             <T size={13} c={C.fg3} style={{ marginTop: 12 }}>
-              {on ? `Heartbeat ${beat}s ago` : `Last seen ${beat < 3600 ? `${Math.floor(beat / 60)}m` : `${Math.floor(beat / 3600)}h`} ago`} · {short(p.authority)}
+              Heartbeat every 30s · {short(p.authority)}
             </T>
           </Card>
         );

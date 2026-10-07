@@ -412,3 +412,10 @@ export function Notice({
     </View>
   );
 }
+
+/** One rendering of provider liveness everywhere it appears (Ask, Network). */
+export function LivenessBadge({ state, age, active = true }: { state: 'live' | 'idle' | 'offline'; age: string; active?: boolean }) {
+  if (state === 'live') return <Badge tone="live">{`Live · ${age} ago`}</Badge>;
+  if (state === 'idle') return <Badge tone="warn">{`Idle · last seen ${age} ago`}</Badge>;
+  return <Badge tone="neutral">{active ? `Offline · last seen ${age} ago` : 'Offline · paused by operator'}</Badge>;
+}

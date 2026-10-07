@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -39,7 +40,8 @@
     "postinstall": "./scripts/fix-spaces.sh",
     "typecheck": "tsc --noEmit",
     "smoke:chain": "tsx scripts/chain-smoke.mts",
-    "e2e:job": "tsx scripts/e2e-job.mts"
+    "e2e:job": "tsx scripts/e2e-job.mts",
+    "test": "tsx --test test/*.test.mts"
   },
   "private": true
 }
