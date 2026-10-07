@@ -23,6 +23,10 @@ async function setup(): Promise<boolean> {
         name: 'Clock-in streak',
         importance: Notifications.AndroidImportance.DEFAULT,
       });
+      await Notifications.setNotificationChannelAsync('jobs', {
+        name: 'Job results',
+        importance: Notifications.AndroidImportance.HIGH,
+      });
     }
   }
   const { status } = await Notifications.getPermissionsAsync();
@@ -50,7 +54,10 @@ export async function scheduleStreakReminder(at: Date, streak: number, nextRewar
 export async function notifyNow(title: string, body: string) {
   try {
     if (!(await setup())) return;
-    await Notifications.scheduleNotificationAsync({ content: { title, body }, trigger: null });
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body },
+      trigger: Platform.OS === 'android' ? { channelId: 'jobs' } : null,
+    });
   } catch {
     /* ignore */
   }

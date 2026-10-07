@@ -3,7 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Animated, BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fmtSkr, short } from './src/chain';
@@ -54,11 +54,12 @@ function WalletSheet({ open, onClose, onToast }: { open: boolean; onClose: () =>
   const { publicKey, kind, cluster, setCluster, disconnect, airdrop } = useWallet();
   const { skr, sol, refresh } = useData();
   const [busy, setBusy] = useState(false);
+  const insets = useSafeAreaInsets();
   if (!publicKey) return null;
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose} />
-      <View style={{ backgroundColor: C.surface2, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: 40, borderColor: C.line2, borderWidth: 1 }}>
+      <View style={{ backgroundColor: C.surface2, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: Math.max(insets.bottom, 16) + 24, borderColor: C.line2, borderWidth: 1 }}>
         <View style={{ width: 40, height: 4, backgroundColor: C.fg4, borderRadius: 2, alignSelf: 'center', marginBottom: 18 }} />
         <Label>{kind === 'mwa' ? 'Mobile Wallet Adapter' : 'Dev wallet · devnet only · key stays on this device'}</Label>
         <T size={14} m style={{ marginTop: 8 }} selectable>
@@ -161,6 +162,22 @@ function Shell() {
     scroll.current?.scrollTo({ y: 0, animated: false });
   }, [tab, job]);
 
+  // Android hardware/gesture back: close the job detail, then return to Today, then exit.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (job) {
+        setJob(null);
+        return true;
+      }
+      if (tab !== 'today') {
+        setTab('today');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [job, tab]);
+
   if (!ready) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
 
   const go = (t: Tab) => {
@@ -203,9 +220,11 @@ function Shell() {
                 </T>
               </Pressable>
             </Row>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <ScrollView
               ref={scroll}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
               refreshControl={
                 <RefreshControl
@@ -247,6 +266,7 @@ function Shell() {
                 <Network />
               )}
             </ScrollView>
+            </KeyboardAvoidingView>
             <View
               style={{
                 position: 'absolute',

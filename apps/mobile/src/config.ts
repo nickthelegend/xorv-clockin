@@ -20,10 +20,11 @@ export const CLUSTERS: Record<ClusterId, { label: string; rpc: string; explorer:
 export const DEFAULT_CLUSTER: ClusterId =
   (process.env.EXPO_PUBLIC_CLUSTER as ClusterId | undefined) ?? 'devnet';
 
+// MWA identity: the icon path is resolved relative to `uri` and must exist there.
 export const APP_IDENTITY = {
   name: 'Xorv',
-  uri: 'https://github.com/nickthelegend/xorv-clockin',
-  icon: 'favicon.ico',
+  uri: 'https://xorv.vercel.app',
+  icon: 'brand/xorv-mark.svg',
 };
 
 /** Honest labelling: on devnet the token is not SKR, it is our stand-in. */

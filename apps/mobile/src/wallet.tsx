@@ -80,7 +80,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const mwaAvailable = Platform.OS === 'android';
 
   const connection = useMemo(() => new Connection(CLUSTERS[cluster].rpc, 'confirmed'), [cluster]);
-  const chain = `solana:${cluster === 'devnet' ? 'devnet' : 'devnet'}` as const;
+  // MWA wallets only know public clusters; the local validator is reached with the dev wallet.
+  const chain = 'solana:devnet' as const;
 
   // Restore the last session without prompting.
   useEffect(() => {
@@ -232,6 +233,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+export const NO_WALLET =
+  'No Solana wallet app found. Install one that supports Mobile Wallet Adapter (Seed Vault, Phantom, Solflare), or use the dev wallet.';
+
 /** Turn a program/RPC error into one sentence a person can act on. */
 export function humanError(e: unknown): string {
   const s = String((e as any)?.message ?? e);
@@ -244,7 +248,7 @@ export function humanError(e: unknown): string {
     [/Attempt to debit an account but found no record|no record of a prior credit/, 'This wallet has no SOL for fees. Tap "Get devnet SOL".'],
     [/429|airdrop/i, 'The devnet faucet is rate-limited. Try again later or use faucet.solana.com.'],
     [/CancellationException|declined|rejected/i, 'Cancelled in the wallet.'],
-    [/Found no installed wallet|ActivityNotFoundException|no wallet/i, 'No Mobile Wallet Adapter wallet found on this device. Install one, or use the dev wallet.'],
+    [/WalletNotInstalled|ERROR_WALLET_NOT_FOUND|Found no installed wallet|ActivityNotFoundException|no wallet/i, NO_WALLET],
     [/Network request failed|fetch failed/, 'Can\'t reach the RPC. Check your connection.'],
   ];
   for (const [re, msg] of known) if (re.test(s)) return msg;

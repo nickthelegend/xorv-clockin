@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 /**
  * Ask — post a job to the network. The phone runs the matcher the broker used
  * to run (live → reputation → bond → price), the buyer signs once, and the
@@ -34,7 +35,7 @@ export default function Ask({ onPosted, onToast }: { onPosted: (job: PublicKey) 
     providers.find((p) => p.address.toBase58() === picked && p.active) ?? live[0] ?? providers.find((p) => p.active);
   const price = chosen?.price ?? 0n;
   const enough = skr >= price;
-  const bytes = new TextEncoder().encode(prompt).length;
+  const bytes = Buffer.byteLength(prompt, 'utf8');
 
   async function post() {
     if (!publicKey || !chosen || !prompt.trim()) return;
