@@ -51,11 +51,10 @@ Everything end to end has been verified against a **local validator** running th
 ## Install the APK
 
 - File: `xorv-clockin.apk` (release, arm64-v8a + x86_64, signed with a per-app release key)
-- SHA-256: `9c2927aa8d53abc2c9e92e6944d4d14a0e1ac4571c1a0eadee5cb905fce1959a`
-- Install: `adb install xorv-clockin.apk`, or sideload on a Seeker. Direct download: https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk (v1.0.1, versionCode 2).
+- SHA-256: `1fda16b048eb2a363a538026d6b40723db0c076809d63d39e67a7818ada98fbd`
+- Install: `adb install xorv-clockin.apk`, or sideload on a Seeker. Direct download: https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk (v1.1.0, versionCode 3).
 - First run: **Connect wallet** (MWA, devnet) or **Use a dev wallet**. Get devnet SOL from the wallet sheet. The app defaults to devnet; the wallet sheet can switch to a local validator.
 
 ## Screens
 
-`clockin/screens/` (captured on the iOS simulator, iPhone 17e, against a local validator): connect, today (clocked in), ask, job
-delivered with hash verified, network and delivery notification, job in escrow, job refunded with slash.
+`clockin/screens/all/` holds a census of 31 screens and states for v1.1.0, with `INDEX.md` and `CONTACT-SHEET.png`. They were captured on the iOS simulator (iPhone 17e) against a local validator; the provider node ran the echo adapter, which says plainly that no AI ran. `clockin/screens/polish/` has before/after captures of the P0 fixes. The earlier 1.0.1 captures are `clockin/screens/ios-0*.png`.

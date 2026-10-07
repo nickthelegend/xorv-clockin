@@ -28,6 +28,14 @@ The Solana version is **phone-first and brokerless**:
 | **Can't be stiffed** | If nobody answers before the deadline, **anyone** can refund you, and **20% of the provider's SKR bond** goes to you as well. A provider that fails honestly calls `reject`, which refunds you instantly with no slash. |
 | **SKR, three ways** | You *earn* it by clocking in, *spend* it on jobs, and providers *stake* it as a slashable bond to be listed. On devnet the token is a program-owned stand-in called **tSKR**, labelled as such everywhere. Mainnet SKR is `SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`, with 6 decimals. |
 
+## Get the app
+
+**[Download the Android APK](https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk)**: v1.1.0 (versionCode 3), release-signed.
+SHA-256 `1fda16b048eb2a363a538026d6b40723db0c076809d63d39e67a7818ada98fbd`. Every screen and state is in
+[`clockin/screens/all/`](clockin/screens/all/INDEX.md).
+
+<img src="clockin/screens/all/CONTACT-SHEET.png" alt="Xorv screen census" width="100%" />
+
 ## How it works on Solana
 
 ```

@@ -1,6 +1,6 @@
 # HANDOFF: Xorv on Solana (CLOCK IN)
 
-Status as of **Oct 7, 2026, ~10:45 IST** (Round 2: Android audit). This file only claims what was actually run and seen.
+Status as of **Oct 7, 2026, ~19:00 IST** (polish round, 1.1.0). This file only claims what was actually run and seen.
 
 ## Verified working (with evidence)
 
@@ -43,9 +43,37 @@ Status as of **Oct 7, 2026, ~10:45 IST** (Round 2: Android audit). This file onl
 ## APK
 
 - Path: `/Volumes/Extreme SSD/Projects/clockin/apks/xorv-clockin.apk` (48.8 MB), also the `clockin-v1` release asset (uploaded with `--clobber`, and the download's hash re-checked)
-- SHA-256: `9c2927aa8d53abc2c9e92e6944d4d14a0e1ac4571c1a0eadee5cb905fce1959a`
-- Package `tech.loompad.xorv`, version 1.0.1 / versionCode 2, signer SHA-256 `0bba90127978ca29cf02e3593263c5f70105ce38590bd96be879c1fa20c631c0`
+- SHA-256: `1fda16b048eb2a363a538026d6b40723db0c076809d63d39e67a7818ada98fbd`
+- Package `tech.loompad.xorv`, version 1.1.0 / versionCode 3, signer SHA-256 `0bba90127978ca29cf02e3593263c5f70105ce38590bd96be879c1fa20c631c0`
 - Rebuild: `cd apps/mobile && ./scripts/build-apk.sh` (prebuild if needed, patches release signing from the external properties file, Gradle heap capped at 3 GB)
+
+## Polish round (1.1.0, Oct 7)
+
+This work was done on branch `polish` and merged to main. It addresses the orchestrator's review (`clockin/review/XORV-POLISH.md`).
+
+- **P0**
+  - **Header:** the wallet pill is now a 44 pt control showing the address, wallet kind and cluster. The "gear" it collided with was the Expo dev-client floating button; it is hidden for captures and never ships in release builds.
+  - **On-chain section:** labelled rows (escrow tx, refund tx, job account, provider, answer SHA-256), each with a short id, a copy button and an explorer button.
+  - **Connect screen:** no stray tools gear, and one primary call to action per platform (Connect wallet on Android, dev wallet on iOS).
+- **P1**
+  - **Network:** big numbers, plus provider cards with a Live/Offline badge, a reputation bar and done/failed/bonded/earned.
+  - **Ask:** focus state, byte counter, wrapping example chips, and an escrow-terms card next to Pay.
+  - **Answers:** collapsible with Read more, with the "Hash verified on this phone" badge kept.
+  - **Today:** a week strip (×1…×7) and a real "Ask the network" button.
+  - **Type:** 12 pt minimum.
+- **P2:** one Badge vocabulary for job states, empty states, and skeletons.
+- **Basics**
+  - a 4-step first-run explainer, replayable from the wallet sheet;
+  - count-ups on tSKR and the streak, and haptics throughout;
+  - offline, not-deployed, no-provider and no-wallet (Android) states;
+  - Dynamic Type capped at 1.6× with numbers that fit their width, and 44 pt targets;
+  - an evening "streak at risk" local notification (20:00 local, or 2 h before the on-chain day closes).
+- **Honesty fix:** the provider node's echo adapter now answers "No AI model ran for this job" instead of the Hedera-era x402 text.
+- **Evidence**
+  - a census of 31 screens in `clockin/screens/all/` (`INDEX.md`, `CONTACT-SHEET.png`), captured on the iPhone 17e simulator against a local validator with the echo provider;
+  - before/after comparisons of the P0 fixes in `clockin/screens/polish/compare-0{1,2,3}.png`;
+  - `solana/scripts/localnet-test.sh` passes 8/8, and the app typecheck (`npx tsc --noEmit`) is clean.
+- **APK:** version 1.1.0 / versionCode 3, built under the shared native-build lock with the same keystore, uploaded with `--clobber`, and the downloaded asset's SHA-256 re-checked.
 
 ## Android audit (Round 2, Oct 7; static inspection only, the APK was never run on a device)
 
