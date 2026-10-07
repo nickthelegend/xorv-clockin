@@ -1,5 +1,5 @@
 {
-  "initTx": "84xSeb5ydErPwJfrSS7KHrtwANLKoX7F8nTGG9P1pWfqfpbAPYk4hnWFrxQ7nFp583n9Wrd2qVLvqBgPSEiCioo",
+  "initTx": "4JQG1zR5s1W3pjfsep5GB2FCWnPMzxwZiXgFnzumEBdsytCmGxRgpSRFhkexCto6EiVsFvCBZ75pgxnM3qD7GGHK",
   "cluster": "localnet",
   "programId": "GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw",
   "config": "Ge5zYWcR6MQ7ECZ9s2y6NpGe5ykGt2XCvnJoXfX1dgQJ",
@@ -9,6 +9,6 @@
   "dailyReward": "25000000",
   "minBond": "10000000",
   "slashBps": 2000,
-  "jobTimeout": 600,
+  "jobTimeout": 90,
   "dayLength": 86400
 }

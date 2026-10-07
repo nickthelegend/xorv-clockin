@@ -7,17 +7,22 @@ import { Animated, BackHandler, KeyboardAvoidingView, Modal, Platform, Pressable
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fmtSkr, short } from './src/chain';
-import { CLUSTERS, ClusterId, SKR_LONG_LABEL } from './src/config';
+import { CLUSTERS, ClusterId } from './src/config';
 import { DataProvider, useData } from './src/data';
 import Ask from './src/screens/Ask';
 import Connect from './src/screens/Connect';
 import { JobDetail, JobsList } from './src/screens/Jobs';
 import Network from './src/screens/Network';
+import Onboarding from './src/screens/Onboarding';
 import Today from './src/screens/Today';
-import { Button, C, Card, Divider, Dot, Label, Mark, Row, T } from './src/ui';
+import { Button, C, Divider, Dot, IconButton, Label, Mark, Notice, Row, T } from './src/ui';
 import { humanError, useWallet, WalletProvider } from './src/wallet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const ONBOARDED = 'xorv.onboarded.v1';
 
 type Tab = 'today' | 'ask' | 'jobs' | 'network';
+const TAB_LABEL: Record<Tab, string> = { today: 'Today', ask: 'Ask', jobs: 'Jobs', network: 'Network' };
 type Toast = { msg: string; kind: 'ok' | 'err' } | null;
 
 function TabIcon({ tab, color }: { tab: Tab; color: string }) {
@@ -50,84 +55,154 @@ function TabIcon({ tab, color }: { tab: Tab; color: string }) {
   );
 }
 
-function WalletSheet({ open, onClose, onToast }: { open: boolean; onClose: () => void; onToast: (m: string, k?: 'ok' | 'err') => void }) {
+function WalletSheet({
+  open,
+  onClose,
+  onToast,
+  onReplayIntro,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onToast: (m: string, k?: 'ok' | 'err') => void;
+  onReplayIntro: () => void;
+}) {
   const { publicKey, kind, cluster, setCluster, disconnect, airdrop } = useWallet();
-  const { skr, sol, refresh } = useData();
+  const { skr, sol, refresh, error } = useData();
   const [busy, setBusy] = useState(false);
   const insets = useSafeAreaInsets();
   if (!publicKey) return null;
+  const addr = publicKey.toBase58();
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose} />
-      <View style={{ backgroundColor: C.surface2, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 22, paddingBottom: Math.max(insets.bottom, 16) + 24, borderColor: C.line2, borderWidth: 1 }}>
-        <View style={{ width: 40, height: 4, backgroundColor: C.fg4, borderRadius: 2, alignSelf: 'center', marginBottom: 18 }} />
-        <Label>{kind === 'mwa' ? 'Mobile Wallet Adapter' : 'Dev wallet · devnet only · key stays on this device'}</Label>
-        <T size={14} m style={{ marginTop: 8 }} selectable>
-          {publicKey.toBase58()}
-        </T>
-        <Row style={{ gap: 18, marginTop: 14 }}>
-          <T weight="700">{sol.toFixed(4)} SOL</T>
-          <T weight="700">{fmtSkr(skr)} tSKR</T>
-        </Row>
-        <T size={11} c={C.fg3} style={{ marginTop: 4 }}>
-          {SKR_LONG_LABEL}
-        </T>
-        <Row style={{ gap: 10, marginTop: 16 }}>
-          <Button
-            title="Copy address"
-            kind="ghost"
-            style={{ flex: 1, height: 44 }}
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} onPress={onClose} accessibilityLabel="Close wallet" />
+      <View
+        style={{
+          backgroundColor: C.surface2,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          padding: 22,
+          paddingBottom: Math.max(insets.bottom, 16) + 20,
+          borderColor: C.line2,
+          borderWidth: 1,
+          gap: 16,
+        }}
+      >
+        <View style={{ width: 40, height: 4, backgroundColor: C.fg4, borderRadius: 2, alignSelf: 'center' }} />
+        <View>
+          <T size={22} weight="800">
+            {kind === 'mwa' ? 'Your wallet' : 'Dev wallet'}
+          </T>
+          <T size={14} c={C.fg2} style={{ marginTop: 4, lineHeight: 20 }}>
+            {kind === 'mwa'
+              ? 'Connected through Mobile Wallet Adapter. Every transaction is approved in your wallet.'
+              : 'A devnet-only key generated on this device. It never leaves it.'}
+          </T>
+        </View>
+
+        <Row style={{ backgroundColor: C.surface, borderRadius: 14, borderWidth: 1, borderColor: C.line, paddingLeft: 14, paddingRight: 6, paddingVertical: 6, gap: 8 }}>
+          <T size={15} m style={{ flex: 1 }} numberOfLines={1} ellipsizeMode="middle" selectable>
+            {addr}
+          </T>
+          <IconButton
+            icon="copy"
+            label="Copy address"
             onPress={async () => {
-              await Clipboard.setStringAsync(publicKey.toBase58());
+              await Clipboard.setStringAsync(addr);
               onToast('Address copied', 'ok');
             }}
           />
-          <Button
-            title={`Get ${cluster} SOL`}
-            kind="ghost"
-            busy={busy}
-            style={{ flex: 1, height: 44 }}
-            onPress={async () => {
-              setBusy(true);
-              try {
-                await airdrop();
-                onToast('SOL received', 'ok');
-                refresh();
-              } catch (e) {
-                onToast(humanError(e), 'err');
-              } finally {
-                setBusy(false);
-              }
-            }}
-          />
         </Row>
+
+        <Row style={{ gap: 12, alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <T size={24} weight="800">
+              {error ? '—' : sol.toFixed(3)}
+            </T>
+            <T size={13} c={C.fg3}>
+              SOL · {cluster}
+            </T>
+          </View>
+          <View style={{ flex: 1 }}>
+            <T size={24} weight="800">
+              {error ? '—' : fmtSkr(skr)}
+            </T>
+            <T size={13} c={C.fg3}>
+              tSKR · SKR stand-in
+            </T>
+          </View>
+        </Row>
+
+        <Button
+          title={busy ? 'Requesting…' : 'Get SOL from the faucet'}
+          kind="ghost"
+          busy={busy}
+          style={{ height: 48 }}
+          onPress={async () => {
+            setBusy(true);
+            try {
+              await airdrop();
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              onToast('SOL received', 'ok');
+              refresh();
+            } catch (e) {
+              onToast(humanError(e), 'err');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+
         <Divider />
-        <Label>Cluster</Label>
-        <Row style={{ gap: 10, marginTop: 10 }}>
+        <Label>Network</Label>
+        <Row style={{ gap: 10, marginTop: -6 }}>
           {(Object.keys(CLUSTERS) as ClusterId[]).map((c) => (
             <Pressable
               key={c}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: c === cluster }}
+              accessibilityLabel={CLUSTERS[c].label}
               onPress={() => {
                 Haptics.selectionAsync();
                 setCluster(c);
               }}
-              style={{ flex: 1, borderWidth: 1, borderColor: c === cluster ? C.fg : C.line2, borderRadius: 12, padding: 12 }}
+              style={({ pressed }) => ({
+                flex: 1,
+                minHeight: 48,
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: c === cluster ? C.fg : C.line2,
+                backgroundColor: pressed ? C.surface3 : 'transparent',
+                borderRadius: 12,
+                paddingHorizontal: 12,
+              })}
             >
-              <T size={13} weight="600" c={c === cluster ? C.fg : C.fg2}>
+              <T size={14} weight="600" c={c === cluster ? C.fg : C.fg2}>
                 {CLUSTERS[c].label}
               </T>
             </Pressable>
           ))}
         </Row>
-        <Button
-          title="Disconnect"
-          kind="danger"
-          style={{ marginTop: 18, height: 46 }}
-          onPress={async () => {
-            onClose();
-            await disconnect();
-          }}
-        />
+
+        <Row style={{ gap: 10 }}>
+          <Button
+            title="How it works"
+            kind="ghost"
+            style={{ flex: 1, height: 48 }}
+            onPress={() => {
+              onClose();
+              onReplayIntro();
+            }}
+          />
+          <Button
+            title="Disconnect"
+            kind="danger"
+            style={{ flex: 1, height: 48 }}
+            onPress={async () => {
+              onClose();
+              await disconnect();
+            }}
+          />
+        </Row>
       </View>
     </Modal>
   );
@@ -142,6 +217,16 @@ function Shell() {
   const [sheet, setSheet] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [pulling, setPulling] = useState(false);
+  const [explainer, setExplainer] = useState<boolean | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDED)
+      .then((v) => setExplainer(v !== '1'))
+      .catch(() => setExplainer(false));
+  }, []);
+  const finishExplainer = () => {
+    AsyncStorage.setItem(ONBOARDED, '1').catch(() => {});
+    setExplainer(false);
+  };
   const fade = useRef(new Animated.Value(0)).current;
   const scroll = useRef<ScrollView>(null);
 
@@ -178,7 +263,7 @@ function Shell() {
     return () => sub.remove();
   }, [job, tab]);
 
-  if (!ready) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
+  if (!ready || explainer === null) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
 
   const go = (t: Tab) => {
     Haptics.selectionAsync();
@@ -190,16 +275,20 @@ function Shell() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <StatusBar style="light" />
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        {!publicKey ? (
+        {explainer ? (
+          <View style={{ flex: 1, paddingBottom: insets.bottom + 8 }}>
+            <Onboarding onDone={finishExplainer} />
+          </View>
+        ) : !publicKey ? (
           <View style={{ flex: 1, paddingHorizontal: 22, paddingBottom: insets.bottom + 8 }}>
-            <Connect onToast={onToast} />
+            <Connect onToast={onToast} onExplain={() => setExplainer(true)} />
           </View>
         ) : (
           <>
-            <Row style={{ justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10 }}>
+            <Row style={{ justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 6, paddingBottom: 8, gap: 12 }}>
               <Row style={{ gap: 10 }}>
-                <Mark size={26} />
-                <T size={20} weight="800" style={{ letterSpacing: -0.5 }}>
+                <Mark size={28} />
+                <T size={22} weight="800" maxFontSizeMultiplier={1.2} style={{ paddingRight: 2 }}>
                   xorv
                 </T>
               </Row>
@@ -208,16 +297,30 @@ function Shell() {
                   Haptics.selectionAsync();
                   setSheet(true);
                 }}
-                accessibilityLabel="Wallet"
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: C.line2, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Wallet ${short(publicKey)}, ${kind === 'dev' ? 'dev wallet' : 'mobile wallet'}, ${CLUSTERS[cluster].label}${error ? ', offline' : ''}`}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  minHeight: 44,
+                  borderWidth: 1,
+                  borderColor: C.line2,
+                  backgroundColor: pressed ? C.surface2 : C.surface,
+                  borderRadius: 14,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                })}
               >
-                <Dot color={error ? C.fail : C.live} size={7} />
-                <T size={12} weight="600" m>
-                  {short(publicKey)}
-                </T>
-                <T size={10} c={C.fg3} weight="700">
-                  {kind === 'dev' ? 'DEV' : 'MWA'} · {cluster === 'devnet' ? 'DEVNET' : 'LOCAL'}
-                </T>
+                <Dot color={error ? C.fail : C.live} size={8} />
+                <View style={{ flexShrink: 1 }}>
+                  <T size={14} weight="600" m maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                    {short(publicKey)}
+                  </T>
+                  <T size={12} c={C.fg3} weight="600" maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                    {kind === 'dev' ? 'Dev wallet' : 'Wallet'} · {cluster === 'devnet' ? 'devnet' : 'local'}
+                  </T>
+                </View>
               </Pressable>
             </Row>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -225,7 +328,7 @@ function Shell() {
               ref={scroll}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
-              contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+              contentContainerStyle={{ padding: 20, paddingTop: 12, paddingBottom: 130 }}
               refreshControl={
                 <RefreshControl
                   tintColor={C.fg2}
@@ -239,14 +342,18 @@ function Shell() {
               }
             >
               {error && !loading && (
-                <Card style={{ borderColor: C.fail, marginBottom: 14 }}>
-                  <T weight="600" c={C.fail}>
-                    {CLUSTERS[cluster].label}: {error.includes('not initialised') ? 'program not deployed here yet' : 'unreachable'}
-                  </T>
-                  <T size={12} c={C.fg2} style={{ marginTop: 4 }}>
-                    {error}
-                  </T>
-                </Card>
+                <View style={{ marginBottom: 16 }}>
+                  <Notice
+                    tone="fail"
+                    title={error.includes('not initialised') ? `Xorv isn't deployed on ${cluster} yet` : `Can't reach ${CLUSTERS[cluster].label}`}
+                    body={
+                      error.includes('not initialised')
+                        ? 'The program has not been initialised on this cluster. Switch cluster from the wallet menu, or try again later.'
+                        : 'You look offline, or the RPC is down. Your funds are safe on-chain; nothing is lost while you wait.'
+                    }
+                    action={{ title: 'Try again', onPress: () => refresh() }}
+                  />
+                </View>
               )}
               {job ? (
                 <JobDetail job={job} onBack={() => setJob(null)} onToast={onToast} />
@@ -255,13 +362,14 @@ function Shell() {
               ) : tab === 'ask' ? (
                 <Ask
                   onToast={onToast}
+                  onClockIn={() => go('today')}
                   onPosted={(j) => {
                     setTab('jobs');
                     setJob(j);
                   }}
                 />
               ) : tab === 'jobs' ? (
-                <JobsList onOpen={setJob} />
+                <JobsList onOpen={setJob} onAsk={() => go('ask')} />
               ) : (
                 <Network />
               )}
@@ -284,16 +392,23 @@ function Shell() {
               {(['today', 'ask', 'jobs', 'network'] as Tab[]).map((t) => {
                 const on = tab === t;
                 return (
-                  <Pressable key={t} onPress={() => go(t)} style={{ flex: 1, alignItems: 'center', gap: 4 }} accessibilityRole="tab" accessibilityLabel={t}>
+                  <Pressable
+                    key={t}
+                    onPress={() => go(t)}
+                    style={{ flex: 1, alignItems: 'center', gap: 4, minHeight: 48, justifyContent: 'center' }}
+                    accessibilityRole="tab"
+                    accessibilityLabel={TAB_LABEL[t]}
+                    accessibilityState={{ selected: on }}
+                  >
                     <TabIcon tab={t} color={on ? C.fg : C.fg3} />
-                    <T size={11} weight="600" c={on ? C.fg : C.fg3} style={{ textTransform: 'capitalize' }}>
-                      {t}
+                    <T size={12} weight="600" c={on ? C.fg : C.fg3} maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                      {TAB_LABEL[t]}
                     </T>
                   </Pressable>
                 );
               })}
             </View>
-            <WalletSheet open={sheet} onClose={() => setSheet(false)} onToast={onToast} />
+            <WalletSheet open={sheet} onClose={() => setSheet(false)} onToast={onToast} onReplayIntro={() => setExplainer(true)} />
           </>
         )}
         {toast && (

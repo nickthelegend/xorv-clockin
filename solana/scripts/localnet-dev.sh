@@ -10,5 +10,5 @@ VPID=$!
 trap 'kill $VPID' EXIT
 until curl -s -X POST -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}' http://127.0.0.1:4510 | grep -q ok; do sleep 1; done
 solana airdrop 100 -u http://127.0.0.1:4510 -k ../.keys/devnet-deployer.json "$(solana-keygen pubkey ../.keys/devnet-deployer.json)" >/dev/null
-RPC_URL=http://127.0.0.1:4510 CLUSTER=localnet npx tsx scripts/init.ts
+RPC_URL=http://127.0.0.1:4510 CLUSTER=localnet JOB_TIMEOUT=${JOB_TIMEOUT:-600} npx tsx scripts/init.ts
 wait $VPID

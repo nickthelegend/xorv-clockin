@@ -2,11 +2,12 @@ import { Platform } from 'react-native';
 
 export type ClusterId = 'devnet' | 'localnet';
 
-export const CLUSTERS: Record<ClusterId, { label: string; rpc: string; explorer: (sig: string) => string }> = {
+export const CLUSTERS: Record<ClusterId, { label: string; rpc: string; explorer: (sig: string) => string; address: (a: string) => string }> = {
   devnet: {
     label: 'Solana devnet',
     rpc: 'https://api.devnet.solana.com',
     explorer: (sig) => `https://explorer.solana.com/tx/${sig}?cluster=devnet`,
+    address: (a) => `https://explorer.solana.com/address/${a}?cluster=devnet`,
   },
   localnet: {
     // The developer's solana-test-validator (solana/scripts/localnet-dev.sh).
@@ -14,6 +15,8 @@ export const CLUSTERS: Record<ClusterId, { label: string; rpc: string; explorer:
     rpc: Platform.OS === 'android' ? 'http://10.0.2.2:4510' : 'http://127.0.0.1:4510',
     explorer: (sig) =>
       `https://explorer.solana.com/tx/${sig}?cluster=custom&customUrl=${encodeURIComponent('http://127.0.0.1:4510')}`,
+    address: (a) =>
+      `https://explorer.solana.com/address/${a}?cluster=custom&customUrl=${encodeURIComponent('http://127.0.0.1:4510')}`,
   },
 };
 

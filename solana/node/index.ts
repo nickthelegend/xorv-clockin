@@ -148,7 +148,17 @@ async function runJob(job: PublicKey, j: JobAccount) {
   const timer = setTimeout(() => ctrl.abort(), budgetMs);
   try {
     const started = Date.now();
-    const answer = await adapter.run({
+    // The CLI's echo adapter describes the Hedera/x402 path; on Solana say
+    // plainly what happened instead. No model runs for echo jobs.
+    const answer = ADAPTER === "echo"
+      ? [
+          "Echo from a Xorv test node. No AI model ran for this job.",
+          "",
+          `You asked: "${j.prompt.slice(0, 200)}"`,
+          "",
+          "What did happen is real: your tSKR was escrowed by the Solana program, this node picked the job up, and the instruction that stored this text also released the payment and recorded its SHA-256. Point the node at claude-code or any OpenAI-compatible model to sell actual capacity; the payment path is identical.",
+        ].join("\n")
+      : await adapter.run({
       prompt: framed(j.prompt),
       cwd,
       timeoutMs: budgetMs,

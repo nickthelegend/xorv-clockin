@@ -3,6 +3,7 @@
  * while the app is in the foreground, paused in the background.
  */
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import * as Haptics from 'expo-haptics';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import {
@@ -84,6 +85,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           const prev = seen.current.get(id);
           if (prev === STATUS.FUNDED && j.status === STATUS.DELIVERED) {
             notifyNow('Your answer is in', `Delivered and verified on-chain: "${j.prompt.slice(0, 60)}"`);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
           seen.current.set(id, j.status);
         }
