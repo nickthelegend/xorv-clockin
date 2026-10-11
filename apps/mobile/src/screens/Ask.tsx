@@ -191,7 +191,7 @@ export default function Ask({
           body={
             error
               ? 'The network is unreachable right now, so providers can\'t be listed. Pull down to retry.'
-              : 'Nobody has registered a node on this cluster. Anyone with Claude Code can run one: pnpm --filter @xorv/solana node'
+              : 'No one is answering right now. Providers come online when someone runs a node with their coding agent. Check back soon.'
           }
         />
       ) : (

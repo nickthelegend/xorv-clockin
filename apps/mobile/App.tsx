@@ -314,11 +314,11 @@ function Shell() {
               >
                 <Dot color={error ? C.fail : C.live} size={8} />
                 <View style={{ flexShrink: 1 }}>
-                  <T size={14} weight="600" m maxFontSizeMultiplier={1.2} numberOfLines={1}>
-                    {short(publicKey)}
+                  <T size={14} weight="600" maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                    {kind === 'dev' ? 'Dev wallet' : 'Your wallet'}
                   </T>
                   <T size={12} c={C.fg3} weight="600" maxFontSizeMultiplier={1.2} numberOfLines={1}>
-                    {kind === 'dev' ? 'Dev wallet' : 'Wallet'} · {cluster === 'devnet' ? 'devnet' : 'local'}
+                    {cluster === 'devnet' ? 'Solana devnet' : 'Local validator'}
                   </T>
                 </View>
               </Pressable>

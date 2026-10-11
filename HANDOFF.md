@@ -142,3 +142,25 @@ To stop everything: `pkill -f "rpc-port 4510"; pkill -f "node/index.ts"; pkill -
 ## Keys (all gitignored, never committed)
 
 `.keys/devnet-deployer.json` (deployer + config admin), `.keys/xorv-program.json` (program ID keypair; keep it, it is the upgrade target), `.keys/provider-node.json` (demo provider). Release keystore: outside the repo (see above).
+
+## 2026-10-12 polish round, 1.1.3 (versionCode 6)
+
+Release build (`xcodebuild -configuration Release`) on the iPhone 17e simulator, fresh install, **Solana devnet**
+(program `GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw`): onboarding 1–4 → connect with a dev wallet → the faucet was
+rate-limited, so the wallet got 0.03 devnet SOL from the xorv deployer → **clock-in on devnet** (+25 tSKR, streak 1,
+`mxWR2cirQuq41t1xD9bZDiQtVPV7bG9nWVaczuySTqFagM3qKjALgx6qztp2mUDDru3ynK2E4EihR2AXBygQenQ`) → Ask, Jobs, Network.
+A demo provider node (`solana/node`, echo adapter, key `.keys/provider-node.json` funded with 0.05 devnet SOL) clocked in
+(`4JvWVDmt…LiZH1Ew`) and registered "clockin-demo" with a 10 tSKR bond (`2AaoPciW…vEzB1E`), and the app listed it as
+live. Posting a job was **not** completed: public devnet answers `getProgramAccounts` with 429 for this machine's IP
+(other methods return 200), so the app showed its offline card and the node's poll failed. The node was stopped.
+On another network the round trip should work; it was verified end to end on a local validator before.
+
+Polish: the header chip says "Dev wallet / Solana devnet" instead of a truncated address (the address stays in the
+wallet sheet); Ask's empty provider state no longer prints a `pnpm` command. No crash or red box on any tab.
+
+Screenshots: `clockin/screens/polish-*.png`. APK: `apps/mobile/scripts/build-apk.sh` under the shared lock, same keystore
+(signer `0bba9012…c631c0`), `aapt2`: `tech.loompad.xorv` 1.1.3 (6), arm64-v8a + x86_64, sha256
+`ab3582cb9b3eb61b3406dc8d42e118b6c1ceb44a5e90be3073206e41695ef899`, uploaded to `clockin-v1` with `--clobber`; the
+download re-hashes the same. The APK includes the uncommitted Oct 8–9 work in the tree (`src/chain.ts`, `data.tsx`,
+`wallet.tsx`, `pendingReceipt.ts`, `withReleaseBuildLimits`), which was left uncommitted because it is not this
+round's work. Not run on an Android device.

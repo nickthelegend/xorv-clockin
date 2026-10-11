@@ -44,15 +44,15 @@ A Seeker app plus a provider node, both wired to one Solana program:
 | Program ID | `GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw` |
 | Config PDA | `Ge5zYWcR6MQ7ECZ9s2y6NpGe5ykGt2XCvnJoXfX1dgQJ` |
 | tSKR mint (PDA) | `5yW5niiHRs2iU4nkpkMqNGE7ZR1EPpSVmvzAJsnQn5Rw` |
-| Deploy status | **Not yet deployed.** The faucet rate-limited every request for the deployer `Ftk563Wp1tdf5U1nyzF1BQwShvKPdHT9VY1FKGWo8ftE`. It needs ~3.2 SOL, then `solana/scripts/deploy-devnet.sh` deploys and initialises in one command. Tx links go here once that runs (see HANDOFF.md). The program ID and PDAs above are deterministic and won't change. |
+| Deploy status | **Deployed and initialised on devnet** (program `GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw`, commit 3707f9b). Oct 12, 1.1.3 Release build on the iOS simulator: dev-wallet clock-in on devnet (+25 tSKR, streak 1) [`mxWR2cir…BygQenQ`](https://explorer.solana.com/tx/mxWR2cirQuq41t1xD9bZDiQtVPV7bG9nWVaczuySTqFagM3qKjALgx6qztp2mUDDru3ynK2E4EihR2AXBygQenQ?cluster=devnet); a demo provider node (echo adapter) clocked in [`4JvWVDmt…LiZH1Ew`](https://explorer.solana.com/tx/4JvWVDmtYzG6jsr4QotxzNeFNo9Lr9ScAoVYPpGMr2zNX6ovL3fEGLPUYrUt7tCfQ5tEEYoSFCL25W3UsLiZH1Ew?cluster=devnet) and registered with a 10 tSKR bond [`2AaoPciW…vEzB1E`](https://explorer.solana.com/tx/2AaoPciWbRLJyarCSoKQjWcUWmh44H8PTqBtN5CYcHyxZbX7cMSU8KFpLaFdf7nR8Db3WoKPsuGVEEbmHLvEzB1E?cluster=devnet). A full job round trip on devnet was not completed: public devnet returns 429 for `getProgramAccounts` to the build machine's IP. |
 
 Everything end to end has been verified against a **local validator** running the same `.so` (see HANDOFF.md for evidence).
 
 ## Install the APK
 
 - File: `xorv-clockin.apk` (release, arm64-v8a + x86_64, signed with a per-app release key)
-- SHA-256: `07eafe5a49f5708c04e5ac1d7d8384f77f0541cf572bc4065ab1b89878c4cf89`
-- Install: `adb install xorv-clockin.apk`, or sideload on a Seeker. Direct download: https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk (v1.1.1, versionCode 4).
+- SHA-256: `ab3582cb9b3eb61b3406dc8d42e118b6c1ceb44a5e90be3073206e41695ef899`
+- Install: `adb install xorv-clockin.apk`, or sideload on a Seeker. Direct download: https://github.com/nickthelegend/xorv-clockin/releases/download/clockin-v1/xorv-clockin.apk (v1.1.3, versionCode 6).
 - First run: **Connect wallet** (MWA, devnet) or **Use a dev wallet**. Get devnet SOL from the wallet sheet. The app defaults to devnet; the wallet sheet can switch to a local validator.
 
 ## Screens
