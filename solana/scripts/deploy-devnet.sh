@@ -6,6 +6,6 @@ cd "$(dirname "$0")/../.."          # repo root: solana-cli dislikes the space i
 URL=https://api.devnet.solana.com
 solana program deploy -u "$URL" -k .keys/devnet-deployer.json \
   --program-id .keys/xorv-program.json solana/target/deploy/xorv.so \
-  --with-compute-unit-price 10000 --max-sign-attempts 50
+  --max-len 460000 --with-compute-unit-price 10000 --max-sign-attempts 50
 cd solana
 RPC_URL=$URL CLUSTER=devnet npx tsx scripts/init.ts
