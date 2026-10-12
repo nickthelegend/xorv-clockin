@@ -154,6 +154,16 @@ describe("the profile", () => {
     expect(preamble).toContain(`ulimit -t ${DEFAULT_LIMITS.cpuSeconds}`);
     expect(preamble).toContain(`ulimit -f ${DEFAULT_LIMITS.fileSizeMb * 1024}`);
     expect(preamble).toContain("ulimit -u");
+    // relative to the user's current process count, not an absolute cap below it
+    expect(preamble).toContain(`ps -U "$(id -u)"`);
+    expect(preamble).toContain(`+ ${DEFAULT_LIMITS.processes}`);
+  });
+});
+
+describe("process cap", () => {
+  it("still lets a job fork when the user already runs more processes than the cap", () => {
+    const r = spawnSync("/bin/sh", ["-c", `${limitsPreamble({ ...DEFAULT_LIMITS, processes: 8 })}; /bin/sh -c 'echo forked'`], { encoding: "utf8" });
+    expect(r.stdout.trim()).toBe("forked");
   });
 });
 

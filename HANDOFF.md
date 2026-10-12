@@ -25,7 +25,11 @@ Status as of **Oct 7, 2026, ~20:00 IST** (1.1.1: liveness fix). This file only c
   - The seatbelt profile now denies reads **and** writes of the real `~/.codex`, `~/.claude`, `~/.claude.json`,
     `~/.config/opencode`, `~/.local/share/opencode` and `~/.agents` (the write deny is listed after the job-dir allow).
     The codex and opencode adapters now pass their kind to `runChild`, so they get the home (only claude did before).
-- **Tests:** `cd packages/cli && npx vitest run` → 142/142, including the profile denying writes to every real agent
+- **Second cause, found on the real devnet run:** the job's `ulimit -u 512` is a per-*user* cap (RLIMIT_NPROC). On a
+  desktop already running ~900 processes every fork inside the job failed with EAGAIN, so Codex's launcher could not
+  start its binary and the job was rejected (refund tx `GXnm967L…6Hib7X`). The cap is now the user's current process
+  count + 512, with a test that a job can still fork.
+- **Tests:** `cd packages/cli && npx vitest run` → 143/143, including the profile denying writes to every real agent
   config path, the job env pointing `CODEX_HOME`/`CLAUDE_CONFIG_DIR` into the job dir, and no hooks/MCP/agent files
   being copied. **Verified on this Mac under `seatbelt`:** a Codex job answered ("Explain a Solana PDA…"), a job told
   to `cat ~/.codex/AGENTS.md` could not, and the per-job home was gone afterwards.

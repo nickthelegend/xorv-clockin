@@ -325,8 +325,10 @@ export function limitsPreamble(limits: SandboxLimits = DEFAULT_LIMITS): string {
   return [
     `ulimit -t ${limits.cpuSeconds}`,
     `ulimit -f ${limits.fileSizeMb * 1024}`,
-    // Process caps are advisory on some shells; failure must not abort the job.
-    `ulimit -u ${limits.processes} 2>/dev/null || true`,
+    // RLIMIT_NPROC counts every process the *user* owns, not just this job's tree. A fixed cap of 512 on a
+    // desktop that already runs ~900 processes made every fork fail (EAGAIN) and every job get rejected. So the
+    // job may start `processes` more than the user is running right now. Advisory on some shells; never fatal.
+    `ulimit -u $(( $(ps -U "$(id -u)" -o pid= 2>/dev/null | wc -l) + ${limits.processes} )) 2>/dev/null || true`,
   ].join("; ");
 }
 
