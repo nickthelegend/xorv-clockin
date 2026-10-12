@@ -101,7 +101,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         sol,
       });
     } catch (e: any) {
-      setState((s) => ({ ...s, loading: false, error: String(e?.message ?? e) }));
+      setState((s) => ({ ...s, config: null, loading: false, error: String(e?.message ?? e) }));
     }
   }, [connection, publicKey, now]);
 

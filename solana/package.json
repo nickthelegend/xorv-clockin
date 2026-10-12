@@ -11,7 +11,8 @@
     "test": "anchor test --skip-build --skip-deploy || true",
     "test:local": "tsx --test tests/xorv.test.ts",
     "node": "tsx node/index.ts",
-    "setup:devnet": "tsx scripts/setup-devnet.ts"
+    "setup:devnet": "tsx scripts/setup-devnet.ts",
+    "test:node": "tsx --test tests/node-runtime.test.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.32.1",

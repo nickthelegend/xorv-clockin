@@ -8,8 +8,14 @@ cd "$(dirname "$0")/.."
 SIGNING="${XORV_SIGNING:-/Volumes/Extreme SSD/Projects/clockin/keys/xorv-release.properties}"
 APK_OUT="${APK_OUT:-/Volumes/Extreme SSD/Projects/clockin/apks/xorv-clockin.apk}"
 [ -f "$SIGNING" ] || { echo "missing signing properties: $SIGNING"; exit 1; }
+CLOCKIN="$(cd ../../.. && pwd)"
+[ -f "$CLOCKIN/env.sh" ] && source "$CLOCKIN/env.sh"
+LOCK="$CLOCKIN/.gradle.lock"
+until mkdir "$LOCK" 2>/dev/null; do sleep 10; done
+printf 'xorv release\n' > "$LOCK/owner"
+trap 'rm "$LOCK/owner"; rmdir "$LOCK"' EXIT
 
-[ -d android ] || npx expo prebuild -p android --no-install
+CI=1 npx expo prebuild -p android --no-install
 GRADLE=android/app/build.gradle
 if ! grep -q "XORV_SIGNING" "$GRADLE"; then
   python3 - "$GRADLE" <<'PY'
@@ -42,8 +48,10 @@ print("patched signing in", p)
 PY
 fi
 export XORV_SIGNING="$SIGNING"
-(cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --no-daemon --max-workers=4 -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m" -q)
+(cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64 --no-daemon --max-workers=1 -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=512m" -q)
+BUILT_APK=android/app/build/outputs/apk/release/app-release.apk
+"$ANDROID_HOME"/build-tools/36.0.0/apksigner verify "$BUILT_APK"
 mkdir -p "$(dirname "$APK_OUT")"
-cp android/app/build/outputs/apk/release/app-release.apk "$APK_OUT"
+cp "$BUILT_APK" "$APK_OUT"
 "$ANDROID_HOME"/build-tools/36.0.0/apksigner verify --print-certs "$APK_OUT" | head -3
 shasum -a 256 "$APK_OUT"

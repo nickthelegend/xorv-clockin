@@ -75,6 +75,7 @@ export default function Ask({
   }
 
   async function post() {
+    if (error || !config) { onToast('Current network state is unavailable. Refresh before posting.', 'err'); return; }
     if (!publicKey || !chosen || !prompt.trim()) return;
     setBusy(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

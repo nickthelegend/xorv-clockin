@@ -1,3 +1,4 @@
+import { createReceiptJournal } from './pendingReceipt';
 /**
  * Two wallets, one interface.
  *
@@ -56,6 +57,12 @@ const MWA_TOKEN = 'xorv.mwa.token';
 const MWA_ADDR = 'xorv.mwa.address';
 const KIND = 'xorv.wallet.kind';
 const CLUSTER = 'xorv.cluster';
+const PENDING = 'xorv.pending.receipt.v1';
+const receiptJournal = createReceiptJournal({
+  get: () => SecureStore.getItemAsync(PENDING),
+  set: (value) => SecureStore.setItemAsync(PENDING, value),
+  clear: () => SecureStore.deleteItemAsync(PENDING),
+});
 
 async function loadDevKeypair(create: boolean): Promise<Keypair | null> {
   const raw = await SecureStore.getItemAsync(DEV_KEY);
@@ -117,7 +124,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       try {
         auth = await wallet.authorize({ chain, identity: APP_IDENTITY, auth_token: cached ?? undefined });
       } catch (e) {
-        if (!cached) throw e;
+        if (!cached || /declin|reject|cancel/i.test(String((e as any)?.message ?? e))) throw e;
         await SecureStore.deleteItemAsync(MWA_TOKEN);
         auth = await wallet.authorize({ chain, identity: APP_IDENTITY });
       }
@@ -174,6 +181,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const send = useCallback(
     async (ixs: TransactionInstruction[]) => {
       if (!publicKey || !kind) throw new Error('Connect a wallet first');
+      return receiptJournal.run(connection.rpcEndpoint, publicKey.toBase58(), async (signature) => {
+        const { value } = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+        return value[0];
+      }, async (saveReceipt, submission) => {
+      try {
       const all = [ComputeBudgetProgram.setComputeUnitLimit({ units: 120_000 }), ...ixs];
       const { context, value: bh } = await connection.getLatestBlockhashAndContext('confirmed');
       const build = (payer: PublicKey) =>
@@ -184,11 +196,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (kind === 'dev') {
         const tx = build(dev!.publicKey);
         tx.sign([dev!]);
+        const bs58 = (await import('bs58')).default;
+        await saveReceipt(bs58.encode(tx.signatures[0]));
+        submission.beginBroadcast();
         sig = await connection.sendTransaction(tx, { maxRetries: 3 });
       } else {
         const { transact } = await mwa();
         sig = await transact(async (wallet: any) => {
           const pk = await authorize(wallet);
+          if (!pk.equals(publicKey)) throw new Error('The wallet switched accounts. Reconnect before signing.');
+          submission.beginBroadcast();
           const [s] = await wallet.signAndSendTransactions({
             transactions: [build(pk)],
             minContextSlot: context.slot,
@@ -201,9 +218,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           sig = bs58.encode(Buffer.from(sig, 'base64'));
         }
       }
+      await saveReceipt(sig);
       const res = await connection.confirmTransaction({ signature: sig, ...bh }, 'confirmed');
       if (res.value.err) throw new Error(`Transaction failed: ${JSON.stringify(res.value.err)}`);
       return sig;
+      } catch (error) { await submission.abortBeforeBroadcast(); throw error; }
+      });
     },
     [authorize, connection, dev, kind, publicKey],
   );
@@ -211,8 +231,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const airdrop = useCallback(async () => {
     if (!publicKey) throw new Error('Connect a wallet first');
     const sig = await connection.requestAirdrop(publicKey, (cluster === 'localnet' ? 5 : 1) * LAMPORTS_PER_SOL);
-    const bh = await connection.getLatestBlockhash();
-    await connection.confirmTransaction({ signature: sig, ...bh }, 'confirmed');
+    // A faucet transaction's expiry cannot be inferred from a newer blockhash.
+    const result = await connection.confirmTransaction(sig, 'confirmed');
+    if (result.value.err) throw new Error(`Airdrop failed (${sig}): ${JSON.stringify(result.value.err)}`);
     return sig;
   }, [cluster, connection, publicKey]);
 

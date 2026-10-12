@@ -46,7 +46,8 @@
           "color": "#ffffff"
         }
       ],
-      "./plugins/withLocalCleartext"
+      "./plugins/withLocalCleartext",
+      "./plugins/withReleaseBuildLimits"
     ]
   }
 }

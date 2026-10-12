@@ -143,6 +143,29 @@ To stop everything: `pkill -f "rpc-port 4510"; pkill -f "node/index.ts"; pkill -
 
 `.keys/devnet-deployer.json` (deployer + config admin), `.keys/xorv-program.json` (program ID keypair; keep it, it is the upgrade target), `.keys/provider-node.json` (demo provider). Release keystore: outside the repo (see above).
 
+## Codex continuation — Oct 8 (provider source changes)
+
+Provider model concurrency now defaults to one job on a shared host; `XORV_MAX_CONCURRENT_JOBS` allows validated integer overrides 1–8. Empty model replies throw into the existing rejection/refund path instead of silently sending no chunks and leaving paid jobs to time out. Account-sized result truncation preserves UTF-8 code points, including emoji. Async job-handler errors are caught and logged.
+
+Validation: 3 offline runtime tests via `cd solana && npm run test:node`; provider entrypoint TypeScript check passes. No provider was started and no chain write or deployment was performed. Existing devnet funding and hardware-verification gaps remain.
+
+## Codex development phase 2 — Oct 8
+
+Provider chunk delivery now checks cancellation before each chunk, so a model that ignores abort and returns after its deadline cannot send a paid final chunk. Jobs too near their deadline are explicitly rejected through the existing buyer-refund instruction rather than silently abandoned. Chunk-order/final-flag/cancellation/failure behavior is verified with offline callbacks; no provider or chain transaction was run.
+
+Checks: provider runtime suite 6/6 and provider TypeScript; Android Hermes JS export for the mobile app. Existing localnet/deployment and actual device gaps still apply.
+
+
+## 2026-10-09 signed Android release 1.1.2
+
+Signed current local source with the existing release identity. VersionCode 5; package `package: name='tech.loompad.xorv' versionCode='5' versionName='1.1.2' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'`; ABIs arm64-v8a and x86_64. Signature verified and certificate matches the prior release; APK is non-debuggable.
+
+- Artifact: `/Volumes/Extreme SSD/Projects/clockin/apks/releases/2026-10-09/xorv-clockin-1.1.2.apk` (48,802,283 bytes).
+- SHA-256: `e622131fe0d35510c01a6c7c89474f1ebaeee8a016f2e99565360800a9a5ee66`.
+- Certificate SHA-256: `0bba90127978ca29cf02e3593263c5f70105ce38590bd96be879c1fa20c631c0`.
+
+This is packaging verification, not product acceptance. No APK installation, device/MWA/SIWS verification, FPS measurement, store submission, public chain signing or source push occurred. Product acceptance remains NOT_RUN until the portfolio plan is frozen.
+
 ## 2026-10-12 polish round, 1.1.3 (versionCode 6)
 
 Release build (`xcodebuild -configuration Release`) on the iPhone 17e simulator, fresh install, **Solana devnet**

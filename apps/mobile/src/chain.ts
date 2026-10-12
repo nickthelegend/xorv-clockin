@@ -334,12 +334,16 @@ export async function fetchUser(c: Connection, wallet: PublicKey): Promise<UserS
 }
 
 export async function fetchSkr(c: Connection, owner: PublicKey): Promise<bigint> {
-  try {
-    const r = await c.getTokenAccountBalance(ata(owner));
-    return BigInt(r.value.amount);
-  } catch {
-    return 0n;
+  const info = await c.getAccountInfo(ata(owner), 'confirmed');
+  if (!info) return 0n;
+  const data = Buffer.from(info.data);
+  if (!info.owner.equals(TOKEN_PROGRAM_ID) || data.length !== 165 || ![1, 2].includes(data[108])) {
+    throw new Error('Invalid SKR token account');
   }
+  if (!new PublicKey(data.subarray(0, 32)).equals(pda.mint()) || !new PublicKey(data.subarray(32, 64)).equals(owner)) {
+    throw new Error('SKR token account mint or owner mismatch');
+  }
+  return u64(data, 64);
 }
 
 // ---------------------------------------------------------------------------

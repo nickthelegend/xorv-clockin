@@ -15,6 +15,7 @@
 import anchor from "@coral-xyz/anchor";
 import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { createAdapter } from "@xorv/cli/dist/adapters/index.js";
+import { concurrencyLimit, submitAnswer } from "./runtime.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,6 +32,7 @@ const BOND = Number(process.env.XORV_BOND ?? 10);
 const NAME = (process.env.XORV_NODE_NAME ?? os.hostname().replace(/\.local$/, "")).slice(0, 32);
 const MAX_RESULT = 2048;
 const CHUNK = 700;
+const MAX_CONCURRENT_JOBS = concurrencyLimit(process.env.XORV_MAX_CONCURRENT_JOBS);
 
 const T = (n: number) => new BN(Math.round(n * 1_000_000));
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -54,15 +56,6 @@ const adapter = createAdapter(ADAPTER);
 /** The answer has to fit in the job account, so ask for brevity up front. */
 const framed = (prompt: string) =>
   `${prompt}\n\n(Answer in plain text, under 1500 characters — the reply is stored on-chain and read on a phone.)`;
-
-function clampUtf8(s: string, max: number): Buffer {
-  const b = Buffer.from(s, "utf8");
-  if (b.length <= max) return b;
-  const tail = "\n…[truncated]";
-  let cut = s;
-  while (Buffer.byteLength(cut + tail) > max) cut = cut.slice(0, Math.floor(cut.length * 0.95));
-  return Buffer.from(cut + tail, "utf8");
-}
 
 async function ensureSol() {
   const bal = await connection.getBalance(node.publicKey);
@@ -119,8 +112,11 @@ async function pollJobs() {
   for (const { publicKey, account } of accounts) {
     const id = publicKey.toBase58();
     if (inFlight.has(id)) continue;
+    if (inFlight.size >= MAX_CONCURRENT_JOBS) break;
     inFlight.add(id);
-    runJob(publicKey, account).finally(() => inFlight.delete(id));
+    void runJob(publicKey, account)
+      .catch((e) => log("job handler failed:", String(e).slice(0, 160)))
+      .finally(() => inFlight.delete(id));
   }
 }
 
@@ -140,7 +136,11 @@ async function runJob(job: PublicKey, j: JobAccount) {
     vault: pda.vault(job),
   };
   if (budgetMs < 5_000) {
-    log("  too close to its deadline — leaving it to refund");
+    log("  too close to its deadline — declining before model work");
+    try {
+      const sig = await program.methods.reject().accountsPartial({ ...settle, buyerAta: ata(j.buyer) }).rpc();
+      log("  rejected → buyer refunded", link(sig));
+    } catch (e) { log("  reject failed:", String(e).slice(0, 160)); }
     return;
   }
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "xorv-sol-job-"));
@@ -168,17 +168,14 @@ async function runJob(job: PublicKey, j: JobAccount) {
         if (text) log("  ·", text.slice(0, 80));
       },
     });
-    const bytes = clampUtf8(answer.trim(), MAX_RESULT);
-    log(`  answered in ${((Date.now() - started) / 1000).toFixed(1)}s · ${bytes.length} bytes`);
-    for (let off = 0; off < bytes.length; off += CHUNK) {
-      const chunk = bytes.subarray(off, off + CHUNK);
-      const done = off + CHUNK >= bytes.length;
+    const bytes = await submitAnswer(answer, async (chunk, done) => {
       const sig = await program.methods
         .submitResult(Buffer.from(chunk), done)
         .accountsPartial({ ...settle, providerAta: ata(node.publicKey) })
         .rpc();
       if (done) log(`  delivered + paid`, link(sig));
-    }
+    }, ctrl.signal, MAX_RESULT, CHUNK);
+    log(`  answered and delivered in ${((Date.now() - started) / 1000).toFixed(1)}s · ${bytes} bytes`);
   } catch (e) {
     log("  agent failed:", String(e).slice(0, 200));
     try {
@@ -210,7 +207,7 @@ async function main() {
   await beat();
   setInterval(beat, 30_000); // must match HEARTBEAT_INTERVAL in apps/mobile/src/chain.ts
   setInterval(checkIn, 60 * 60_000);
-  log("live — waiting for jobs");
+  log(`live — waiting for jobs · max ${MAX_CONCURRENT_JOBS} concurrent`);
   for (;;) {
     await pollJobs().catch((e) => log("poll failed:", String(e).slice(0, 120)));
     await new Promise((r) => setTimeout(r, 3_000));
