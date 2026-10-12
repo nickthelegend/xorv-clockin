@@ -24,6 +24,7 @@ import {
   resetSandboxCache,
   sandboxEnv,
   seatbeltProfile,
+  agentStatePaths,
   secretPaths,
   withheldEnvKeys,
   wrapCommand,
@@ -127,6 +128,19 @@ describe("the profile", () => {
     // unresolved subpath matches nothing and the job cannot write its own output.
     const profile = seatbeltProfile(jobDir, "/Users/x");
     expect(profile).toContain(fs.realpathSync(jobDir));
+  });
+
+  it("lets the agent CLIs write their own state (codex fails to start without ~/.codex)", () => {
+    const profile = seatbeltProfile(jobDir, "/Users/x");
+    const allow = profile.slice(profile.indexOf("(allow file-write*"));
+    for (const p of agentStatePaths("/Users/x", {})) expect(allow).toContain(`(subpath "${p}")`);
+    expect(agentStatePaths("/Users/x", {})).toContain("/Users/x/.codex");
+    expect(agentStatePaths("/Users/x", { CODEX_HOME: "/opt/codex-home" })).toContain("/opt/codex-home");
+  });
+
+  it("never makes a secret path writable", () => {
+    const allow = seatbeltProfile(jobDir, "/Users/x").split("(allow file-write*")[1];
+    for (const p of secretPaths("/Users/x")) expect(allow).not.toContain(`"${p}"`);
   });
 
   it("caps cpu, file size and processes", () => {

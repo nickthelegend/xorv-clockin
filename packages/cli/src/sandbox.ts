@@ -274,6 +274,11 @@ export function seatbeltProfile(jobDir: string, home = os.homedir()): string {
   // working directory. Both spellings are allowed because the process may open
   // either one.
   const writable = new Set<string>([jobDir, realpath(jobDir), realpath(os.tmpdir()), os.tmpdir()]);
+  // The agent CLIs keep their own session state under these paths and refuse to start when they can't
+  // write it (codex: "failed to initialize in-process app-server client: Operation not permitted").
+  // They are already readable by design (see the header), so allowing writes there adds no new
+  // secret to the job's reach; writes everywhere else stay denied.
+  for (const p of agentStatePaths(home)) writable.add(p);
 
   return `(version 1)
 (allow default)
@@ -291,6 +296,21 @@ ${[...writable].map((p) => `  (subpath ${JSON.stringify(p)})`).join("\n")}
 ; --- process control ---------------------------------------------------------
 (deny mach-priv-task-port)
 `;
+}
+
+/**
+ * The agent CLIs' own state, which they must be able to write: `~/.codex` (or `$CODEX_HOME`),
+ * `~/.claude` + `~/.claude.json`, and opencode's config dir. Never a secret path.
+ */
+export function agentStatePaths(home = os.homedir(), env: NodeJS.ProcessEnv = process.env): string[] {
+  const paths = [
+    env.CODEX_HOME || path.join(home, ".codex"),
+    path.join(home, ".claude"),
+    path.join(home, ".claude.json"),
+    path.join(home, ".config", "opencode"),
+  ];
+  const secrets = secretPaths(home);
+  return paths.filter((p) => !secrets.some((s) => p === s || p.startsWith(s + path.sep)));
 }
 
 /** Resolve symlinks, tolerating a path that does not exist yet. */

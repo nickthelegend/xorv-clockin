@@ -3,6 +3,18 @@
 Status as of **Oct 7, 2026, ~20:00 IST** (1.1.1: liveness fix). This file only claims what was actually run and seen.
 
 
+## 2026-10-12 (night): Codex runs under the default sandbox
+
+- **Bug:** on macOS the node's default `seatbelt` tier denied writes outside the job directory, including Codex's own
+  state dir, so `codex exec` died with "failed to initialize in-process app-server client: Operation not permitted"
+  and every Codex job was rejected (refunded). The demo run had to use `XORV_SANDBOX=env`.
+- **Fix:** `packages/cli/src/sandbox.ts` now also allows writes to the agent CLIs' own state (`~/.codex` or
+  `$CODEX_HOME`, `~/.claude`, `~/.claude.json`, `~/.config/opencode`). Those were already readable by design; secret
+  paths (`~/.xorv`, `~/.ssh`, ...) stay unreadable and every other write stays denied. Tests:
+  `npx vitest run test/sandbox.test.ts` (24/24). Verified: the codex adapter answered under `seatbelt` on this Mac.
+- **Operator note:** if your `~/.codex/config.toml` default model isn't available on your plan, point
+  `XORV_CODEX_BIN` at a two-line wrapper that runs `codex -c model="<model>" "$@"`.
+
 ## 2026-10-12: no-mocks pass, job round trip on devnet, 1.2.0 (versionCode 7)
 
 - **The job round trip now runs on public devnet.** It used to die on `getProgramAccounts` 429s. Jobs are now posted
