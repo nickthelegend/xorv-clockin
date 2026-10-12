@@ -31,6 +31,7 @@ import path from "node:path";
 import type { AdapterKind, JobEvent } from "@xorv/protocol";
 import { DEFAULT_LIMITS, detectSandbox, sandboxEnv, wrapCommand, type SandboxTier } from "../sandbox.js";
 import { agentCredentials } from "../credentials.js";
+import { finishAgentHome, prepareAgentHome, type AgentHome } from "../agent-home.js";
 
 export type EmitEvent = (event: Omit<JobEvent, "at">) => void;
 
@@ -179,15 +180,19 @@ export function runChild(opts: {
       reject(err instanceof Error ? err : new Error(String(err)));
       return;
     }
+    // A throwaway agent home per job, so the agent never touches the operator's real config.
+    let agentHome: AgentHome | null = null;
     try {
+      if (!opts.env && opts.adapter) agentHome = prepareAgentHome(opts.adapter, opts.cwd);
       child = spawn(wrapped.cmd, wrapped.args, {
         cwd: opts.cwd,
-        env: opts.env ?? agentEnv(opts.adapter ? agentCredentials(opts.adapter) : {}),
+        env: opts.env ?? agentEnv({ ...(opts.adapter ? agentCredentials(opts.adapter) : {}), ...(agentHome?.env ?? {}) }),
         stdio: [opts.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
         detached: process.platform !== "win32",
       });
     } catch (err) {
       wrapped.cleanup?.();
+      finishAgentHome(agentHome);
       reject(err instanceof Error ? err : new Error(String(err)));
       return;
     }
@@ -243,12 +248,14 @@ export function runChild(opts: {
     child.on("error", (err) => {
       opts.signal.removeEventListener("abort", kill);
       wrapped.cleanup?.();
+      finishAgentHome(agentHome);
       reject(err);
     });
 
     child.on("close", (code, signal) => {
       opts.signal.removeEventListener("abort", kill);
       wrapped.cleanup?.();
+      finishAgentHome(agentHome);
       if (pending.trim() && opts.onLine) opts.onLine(pending);
       if (killed) {
         reject(new Error("job was cancelled or timed out"));

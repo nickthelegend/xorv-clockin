@@ -14,6 +14,7 @@
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { realAgentConfigPaths } from "../src/agent-home.js";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,7 +25,7 @@ import {
   resetSandboxCache,
   sandboxEnv,
   seatbeltProfile,
-  agentStatePaths,
+
   secretPaths,
   withheldEnvKeys,
   wrapCommand,
@@ -130,17 +131,22 @@ describe("the profile", () => {
     expect(profile).toContain(fs.realpathSync(jobDir));
   });
 
-  it("lets the agent CLIs write their own state (codex fails to start without ~/.codex)", () => {
+  it("denies writes (and reads) of every real agent config path, after the job-dir allow", () => {
     const profile = seatbeltProfile(jobDir, "/Users/x");
-    const allow = profile.slice(profile.indexOf("(allow file-write*"));
-    for (const p of agentStatePaths("/Users/x", {})) expect(allow).toContain(`(subpath "${p}")`);
-    expect(agentStatePaths("/Users/x", {})).toContain("/Users/x/.codex");
-    expect(agentStatePaths("/Users/x", { CODEX_HOME: "/opt/codex-home" })).toContain("/opt/codex-home");
+    const allowAt = profile.indexOf("(allow file-write*");
+    for (const p of realAgentConfigPaths("/Users/x", {})) {
+      const denyW = profile.indexOf(`(deny file-write* (subpath "${p}"))`);
+      expect(denyW).toBeGreaterThan(allowAt);
+      expect(profile).toContain(`(deny file-read* (subpath "${p}"))`);
+    }
+    for (const p of ["/Users/x/.claude", "/Users/x/.claude.json", "/Users/x/.codex", "/Users/x/.config/opencode"]) {
+      expect(realAgentConfigPaths("/Users/x", {})).toContain(p);
+    }
   });
 
   it("never makes a secret path writable", () => {
-    const allow = seatbeltProfile(jobDir, "/Users/x").split("(allow file-write*")[1];
-    for (const p of secretPaths("/Users/x")) expect(allow).not.toContain(`"${p}"`);
+    const allow = seatbeltProfile(jobDir, "/Users/x").split("(allow file-write*")[1].split(")\n\n")[0];
+    for (const p of [...secretPaths("/Users/x"), ...realAgentConfigPaths("/Users/x", {})]) expect(allow).not.toContain(`"${p}"`);
   });
 
   it("caps cpu, file size and processes", () => {

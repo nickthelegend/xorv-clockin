@@ -3,17 +3,32 @@
 Status as of **Oct 7, 2026, ~20:00 IST** (1.1.1: liveness fix). This file only claims what was actually run and seen.
 
 
-## 2026-10-12 (night): Codex runs under the default sandbox
+## 2026-10-12 (night): Codex runs under the default sandbox, with a throwaway agent home per job
 
 - **Bug:** on macOS the node's default `seatbelt` tier denied writes outside the job directory, including Codex's own
-  state dir, so `codex exec` died with "failed to initialize in-process app-server client: Operation not permitted"
-  and every Codex job was rejected (refunded). The demo run had to use `XORV_SANDBOX=env`.
-- **Fix:** `packages/cli/src/sandbox.ts` now also allows writes to the agent CLIs' own state (`~/.codex` or
-  `$CODEX_HOME`, `~/.claude`, `~/.claude.json`, `~/.config/opencode`). Those were already readable by design; secret
-  paths (`~/.xorv`, `~/.ssh`, ...) stay unreadable and every other write stays denied. Tests:
-  `npx vitest run test/sandbox.test.ts` (24/24). Verified: the codex adapter answered under `seatbelt` on this Mac.
-- **Operator note:** if your `~/.codex/config.toml` default model isn't available on your plan, point
-  `XORV_CODEX_BIN` at a two-line wrapper that runs `codex -c model="<model>" "$@"`.
+  state, so `codex exec` died with "failed to initialize in-process app-server client: Operation not permitted" and
+  every Codex job was rejected (refunded). The demo run had to use `XORV_SANDBOX=env`.
+- **First fix (6d6adb2) was unsafe and is replaced:** it made the real `~/.codex`, `~/.claude*` and opencode config
+  writable from jobs. Job prompts come from strangers, so a prompt-injected agent could have planted hooks, MCP
+  servers, `CLAUDE.md`/`AGENTS.md`, agents/commands/skills or a `config.toml` that run code *outside* the sandbox the
+  next time the operator uses their agent.
+- **Now (`packages/cli/src/agent-home.ts`):** each job gets its own agent home inside the job directory, created by the
+  unsandboxed parent and deleted when the job ends:
+  - codex: `CODEX_HOME=<job>/.agent-home/codex-home` with only `auth.json` and a `config.toml` holding just `model`
+    (and `model_reasoning_effort`). `XORV_CODEX_MODEL=gpt-5.5` pins the model (replaces the `XORV_CODEX_BIN` wrapper).
+    If Codex refreshed its login during the job, the new `auth.json` is written back only when it is well-formed, for
+    the same account, newer, and has no new keys.
+  - claude-code: `CLAUDE_CONFIG_DIR=<job>/.agent-home/claude-home`, empty; it authenticates with the OAuth token the
+    node already injects. **Not verified on this Mac** (its Claude login has expired); if Claude refuses an empty
+    config dir, run Claude providers with `XORV_SANDBOX=container` rather than reopening the real config.
+  - opencode: `XDG_CONFIG_HOME`/`XDG_DATA_HOME` under the job; only its `auth.json` is copied (not verified here).
+  - The seatbelt profile now denies reads **and** writes of the real `~/.codex`, `~/.claude`, `~/.claude.json`,
+    `~/.config/opencode`, `~/.local/share/opencode` and `~/.agents` (the write deny is listed after the job-dir allow).
+    The codex and opencode adapters now pass their kind to `runChild`, so they get the home (only claude did before).
+- **Tests:** `cd packages/cli && npx vitest run` → 142/142, including the profile denying writes to every real agent
+  config path, the job env pointing `CODEX_HOME`/`CLAUDE_CONFIG_DIR` into the job dir, and no hooks/MCP/agent files
+  being copied. **Verified on this Mac under `seatbelt`:** a Codex job answered ("Explain a Solana PDA…"), a job told
+  to `cat ~/.codex/AGENTS.md` could not, and the per-job home was gone afterwards.
 
 ## 2026-10-12: no-mocks pass, job round trip on devnet, 1.2.0 (versionCode 7)
 

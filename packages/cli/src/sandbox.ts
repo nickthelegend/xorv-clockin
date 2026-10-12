@@ -22,11 +22,15 @@
  *
  * ## What this still does not do
  *
- * The agent CLIs must reach their own credentials to authenticate at all —
- * `claude` needs `~/.claude`, `codex` needs `~/.codex`. Those stay readable, so
- * a hostile prompt can still read the provider's *agent session*. It cannot
- * read their payout key, SSH keys, cloud credentials, or browser profile, and
- * it cannot write outside its job directory.
+ * The agent CLIs must reach their own credentials to authenticate at all. They
+ * get them through a throwaway per-job agent home (agent-home.ts): Codex's
+ * auth.json is copied in, Claude gets its OAuth token from the environment.
+ * The operator's real `~/.codex`, `~/.claude*` and opencode config are neither
+ * readable nor writable from a job, so a hostile prompt can read the rented
+ * agent session's token (it is in the job) but cannot plant hooks, MCP servers
+ * or instructions that would run outside the sandbox later. It cannot read the
+ * payout key, SSH keys, cloud credentials or browser profile, and it cannot
+ * write outside its job directory.
  *
  * Closing that last gap needs a container, which is why `container` exists and
  * why `xorv doctor` names the active tier rather than saying "sandboxed".
@@ -36,6 +40,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { realAgentConfigPaths } from "./agent-home.js";
 
 export type SandboxTier = "none" | "env" | "limits" | "seatbelt" | "bwrap" | "container";
 
@@ -264,8 +269,14 @@ export function resetSandboxCache(): void {
  * to the job directory.
  */
 export function seatbeltProfile(jobDir: string, home = os.homedir()): string {
-  const deny = secretPaths(home)
+  const deny = [...secretPaths(home), ...realAgentConfigPaths(home)]
     .map((p) => `  (deny file-read* (subpath ${JSON.stringify(p)}))`)
+    .join("\n");
+  // The operator's real agent config (hooks, MCP servers, CLAUDE.md, AGENTS.md, ...) would run code outside the
+  // sandbox next time the operator uses their agent, so it is never writable from a job. Jobs get a throwaway agent
+  // home inside the job directory instead (agent-home.ts). Listed last so it wins over the allows above it.
+  const denyAgentWrites = realAgentConfigPaths(home)
+    .map((p) => `  (deny file-write* (subpath ${JSON.stringify(p)}))`)
     .join("\n");
 
   // Seatbelt matches on the *resolved* path. On macOS the job directory lives
@@ -274,11 +285,6 @@ export function seatbeltProfile(jobDir: string, home = os.homedir()): string {
   // working directory. Both spellings are allowed because the process may open
   // either one.
   const writable = new Set<string>([jobDir, realpath(jobDir), realpath(os.tmpdir()), os.tmpdir()]);
-  // The agent CLIs keep their own session state under these paths and refuse to start when they can't
-  // write it (codex: "failed to initialize in-process app-server client: Operation not permitted").
-  // They are already readable by design (see the header), so allowing writes there adds no new
-  // secret to the job's reach; writes everywhere else stay denied.
-  for (const p of agentStatePaths(home)) writable.add(p);
 
   return `(version 1)
 (allow default)
@@ -293,24 +299,12 @@ ${deny}
 ${[...writable].map((p) => `  (subpath ${JSON.stringify(p)})`).join("\n")}
   (subpath "/dev"))
 
+; --- the operator's real agent config: never writable (jobs use a throwaway agent home) ---
+${denyAgentWrites}
+
 ; --- process control ---------------------------------------------------------
 (deny mach-priv-task-port)
 `;
-}
-
-/**
- * The agent CLIs' own state, which they must be able to write: `~/.codex` (or `$CODEX_HOME`),
- * `~/.claude` + `~/.claude.json`, and opencode's config dir. Never a secret path.
- */
-export function agentStatePaths(home = os.homedir(), env: NodeJS.ProcessEnv = process.env): string[] {
-  const paths = [
-    env.CODEX_HOME || path.join(home, ".codex"),
-    path.join(home, ".claude"),
-    path.join(home, ".claude.json"),
-    path.join(home, ".config", "opencode"),
-  ];
-  const secrets = secretPaths(home);
-  return paths.filter((p) => !secrets.some((s) => p === s || p.startsWith(s + path.sep)));
 }
 
 /** Resolve symlinks, tolerating a path that does not exist yet. */
@@ -420,10 +414,7 @@ export function wrapCommand(
       "--bind", opts.jobDir, opts.jobDir,
       "--tmpfs", "/tmp",
     ];
-    for (const dir of [".claude", ".codex", ".config/opencode"]) {
-      const full = path.join(home, dir);
-      if (fs.existsSync(full)) binds.push("--ro-bind", full, full);
-    }
+    // No agent config is bound in: each job brings its own throwaway agent home (agent-home.ts).
     return {
       cmd: "bwrap",
       args: [...binds, "--die-with-parent", "--", "/bin/sh", ...shellArgs(shellQuote(cmd)), ...args],

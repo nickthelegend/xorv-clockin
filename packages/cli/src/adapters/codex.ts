@@ -59,6 +59,7 @@ export class CodexAdapter implements JobAdapter {
     let finalText = "";
 
     const result = await runChild({
+      adapter: this.kind,
       cmd: bin,
       args,
       cwd: input.cwd,
