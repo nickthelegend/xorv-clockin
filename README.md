@@ -45,9 +45,9 @@ SHA-256 `07eafe5a49f5708c04e5ac1d7d8384f77f0541cf572bc4065ab1b89878c4cf89`. Ever
                                        mint tSKR × min(streak,7)  (devnet stand-in)
                                                                       ◄────── register_provider (stake bond)
                                                                       ◄────── heartbeat (every 60 s)
- rank providers (getProgramAccounts)
+ rank providers (getMultipleAccounts over known PDAs; a filtered scan at most once a minute)
  post_job(prompt, max_price) ────────► Job PDA + vault ATA  ◄─ price
-                                                                      ◄────── poll Funded jobs for me
+                                                                      ◄────── provider.open_jobs > 0? then fetch my Funded jobs
                                                                               run agent (Claude Code / any
                                                                               @xorv/cli adapter)
                                        submit_result(chunk, done) ◄────────── answer, ≤ 2 KB, chunked

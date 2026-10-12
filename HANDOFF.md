@@ -2,6 +2,25 @@
 
 Status as of **Oct 7, 2026, ~20:00 IST** (1.1.1: liveness fix). This file only claims what was actually run and seen.
 
+
+## 2026-10-12: no-mocks pass, job round trip on devnet, 1.2.0 (versionCode 7)
+
+- **The job round trip now runs on public devnet.** It used to die on `getProgramAccounts` 429s. Jobs are now posted
+  with `nonce = UserStats.jobs_posted` and read as derived PDAs with one `getMultipleAccounts`; providers use one
+  filtered scan (discriminator + `dataSize` 183, no data) at most once a minute plus `getMultipleAccounts`; the node
+  scans only when its `open_jobs` counter is non-zero. From the app on the iPhone 17e simulator (Release, devnet):
+  clock-in → post job → the echo node picked it up and delivered, escrow released → a second job to the stopped node →
+  refund + 20% slash → close job. Signatures (all Finalized): [`clockin/BUTTON-AUDIT.md`](clockin/BUTTON-AUDIT.md).
+  The node ran only for the test (echo adapter) and was stopped.
+- **Every button tapped**; fixes: receipt journal lockout (shared fix), hashes/addresses on the job screen and Network,
+  the dev-only network switch hidden in release builds, a signature inside the airdrop error.
+- **Added:** Sign In With Solana (MWA `sign_in_payload` + `signMessages` fallback; dev key signs the same message,
+  verified on the phone) and the Seeker Genesis Token check (read-only mainnet) in the wallet sheet.
+- The Oct 8–9 work already in APK 1.1.3 is now committed.
+- APK 1.2.0 (7): sha256 `d2a2286e3654d0e0b8659fa665649aa7294ec1173acdf6d2d2568a05b5244a1e`, signer `0bba9012…c631c0`
+  (same key), arm64-v8a + x86_64. Not run on an Android device; MWA and SIWS on Android untested on hardware.
+- Still not real: answers come from whichever adapter an operator runs; the demo node is the echo adapter and says so.
+
 ## Verified working (with evidence)
 
 | What | How it was verified |

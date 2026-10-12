@@ -8,7 +8,7 @@ import { PublicKey } from '@solana/web3.js';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, TextInput, View } from 'react-native';
-import { ageLabel, autoPick, fmtSkr, heartbeatAge, isLive, LIVE_MAX, liveness, Liveness, MAX_PROMPT, postJobIx, Provider, reputation } from '../chain';
+import { ageLabel, autoPick, fmtSkr, heartbeatAge, isLive, LIVE_MAX, liveness, Liveness, MAX_PROMPT, nextJobNonce, postJobIx, Provider, reputation } from '../chain';
 import { SKR_LABEL } from '../config';
 import { useData } from '../data';
 import { Badge, Button, C, Card, Label, LivenessBadge, Notice, Row, Skeleton, T } from '../ui';
@@ -31,7 +31,7 @@ export default function Ask({
   onToast: (m: string, k?: 'ok' | 'err') => void;
   onClockIn: () => void;
 }) {
-  const { publicKey, send } = useWallet();
+  const { publicKey, send, connection } = useWallet();
   const { providers, skr, now, refresh, config, loading, error } = useData();
   const [prompt, setPrompt] = useState('');
   const [picked, setPicked] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export default function Ask({
     setBusy(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const nonce = BigInt(Date.now());
+      const nonce = await nextJobNonce(connection, publicKey);
       const { ix, job } = postJobIx(publicKey, chosen.authority, nonce, prompt.trim(), price);
       const sig = await send([ix]);
       await rememberSig(job.toBase58(), 'posted', sig);

@@ -73,12 +73,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       let skr = 0n;
       let sol = 0;
       if (publicKey) {
-        [jobs, user, skr, sol] = await Promise.all([
-          fetchJobs(connection, publicKey),
+        [user, skr, sol] = await Promise.all([
           fetchUser(connection, publicKey),
           fetchSkr(connection, publicKey),
           connection.getBalance(publicKey).then((l) => l / LAMPORTS_PER_SOL),
         ]);
+        jobs = await fetchJobs(connection, publicKey, user?.jobsPosted ?? 0);
         // A job that changed state since the last poll is worth a notification.
         for (const j of jobs) {
           const id = j.address.toBase58();

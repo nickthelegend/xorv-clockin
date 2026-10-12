@@ -125,7 +125,7 @@ export default function Network() {
               ))}
             </Row>
             <T size={13} c={C.fg3} style={{ marginTop: 12 }}>
-              Heartbeat every 30s · {short(p.authority)}
+              Heartbeat every 30s
             </T>
           </Card>
         );

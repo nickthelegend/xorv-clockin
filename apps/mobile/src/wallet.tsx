@@ -23,6 +23,7 @@ import {
   ComputeBudgetProgram,
 } from '@solana/web3.js';
 import * as SecureStore from 'expo-secure-store';
+import { buildSignInInput, createSignInMessageText, fromB64, proofOf, recheckProof, signInLocally, utf8, verifySignIn, type SiwsProof } from './siws';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 import { APP_IDENTITY, CLUSTERS, ClusterId, DEFAULT_CLUSTER } from './config';
@@ -38,6 +39,8 @@ interface WalletState {
   mwaAvailable: boolean;
   connectMwa: () => Promise<void>;
   useDevWallet: () => Promise<void>;
+  /** A verified Sign In With Solana proof for the connected account, or null. */
+  signIn: SiwsProof | null;
   disconnect: () => Promise<void>;
   setCluster: (c: ClusterId) => Promise<void>;
   /** Build a v0 tx from `ixs`, sign with the active wallet, send, confirm. */
@@ -56,6 +59,14 @@ const DEV_KEY = 'xorv.devwallet.v1';
 const MWA_TOKEN = 'xorv.mwa.token';
 const MWA_ADDR = 'xorv.mwa.address';
 const KIND = 'xorv.wallet.kind';
+const SIWS = 'xorv.siws.v1';
+
+function devSignIn(kp: Keypair): SiwsProof | null {
+  const input = buildSignInInput();
+  const out = signInLocally(input, kp.secretKey);
+  const v = verifySignIn(input, out);
+  return v.ok ? proofOf('dev-local', 'Dev wallet', input, v, out.signature) : null;
+}
 const CLUSTER = 'xorv.cluster';
 const PENDING = 'xorv.pending.receipt.v1';
 const receiptJournal = createReceiptJournal({
@@ -83,6 +94,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [kind, setKind] = useState<Kind | null>(null);
   const [publicKey, setPublicKey] = useState<PublicKey | null>(null);
   const [dev, setDev] = useState<Keypair | null>(null);
+  const [signIn, setSignInState] = useState<SiwsProof | null>(null);
+  const setSignIn = useCallback(async (p: SiwsProof | null) => {
+    setSignInState(p);
+    if (p) await SecureStore.setItemAsync(SIWS, JSON.stringify(p));
+    else await SecureStore.deleteItemAsync(SIWS);
+  }, []);
   const [cluster, setClusterState] = useState<ClusterId>(DEFAULT_CLUSTER);
   const mwaAvailable = Platform.OS === 'android';
 
@@ -111,6 +128,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             setKind('mwa');
           }
         }
+        // Re-verify the stored Sign In With Solana proof; a dev key can simply sign again.
+        const raw = await SecureStore.getItemAsync(SIWS);
+        const stored: SiwsProof | null = raw ? JSON.parse(raw) : null;
+        const who = k === 'dev' ? (await loadDevKeypair(false))?.publicKey.toBase58() : await SecureStore.getItemAsync(MWA_ADDR);
+        if (stored && who && stored.address === who && recheckProof(stored)) setSignInState(stored);
+        else if (k === 'dev') {
+          const kp = await loadDevKeypair(false);
+          if (kp) {
+            const p = devSignIn(kp);
+            setSignInState(p);
+            if (p) await SecureStore.setItemAsync(SIWS, JSON.stringify(p));
+          }
+        }
+      } catch {
+        setSignInState(null);
       } finally {
         setReady(true);
       }
@@ -137,25 +169,60 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [chain],
   );
 
+  /**
+   * One wallet sheet: authorize + Sign In With Solana (sign_in_payload). Seed
+   * Vault, Phantom and Solflare return sign_in_result, verified here (ed25519
+   * signature + our domain, nonce, chain, fresh time). A wallet that ignores the
+   * payload is asked to signMessages the same text; if declined, the account is
+   * connected without a proof and the wallet sheet says so.
+   */
   const connectMwa = useCallback(async () => {
     if (!mwaAvailable) throw new Error('Mobile Wallet Adapter is Android-only');
     const { transact } = await mwa();
-    const pk = await transact(authorize);
+    const input = buildSignInInput();
+    const { pk, proof } = await transact(async (wallet: any) => {
+      const auth = await wallet.authorize({ chain, identity: APP_IDENTITY, sign_in_payload: input });
+      await SecureStore.setItemAsync(MWA_TOKEN, auth.auth_token);
+      const first = auth.accounts[0];
+      const signer = (first.label as string | undefined)?.trim() || 'your wallet';
+      const pk = new PublicKey(Buffer.from(first.address, 'base64'));
+      await SecureStore.setItemAsync(MWA_ADDR, pk.toBase58());
+      const sir = auth.sign_in_result;
+      if (sir) {
+        const address = new PublicKey(fromB64(sir.address)).toBase58();
+        const signature = fromB64(sir.signature);
+        const v = verifySignIn(input, { address, signedMessage: fromB64(sir.signed_message), signature });
+        if (!v.ok) throw new Error(`The wallet's sign-in did not verify (${v.reason}).`);
+        return { pk, proof: proofOf('siws', signer, input, v, signature) };
+      }
+      try {
+        const msg = utf8(createSignInMessageText({ ...input, address: pk.toBase58() }));
+        const [signed] = await wallet.signMessages({ addresses: [first.address], payloads: [msg] });
+        for (const signature of [signed.slice(-64), signed.slice(0, 64)]) {
+          const v = verifySignIn(input, { address: pk.toBase58(), signedMessage: msg, signature });
+          if (v.ok) return { pk, proof: proofOf('signMessage', signer, input, v, signature) };
+        }
+      } catch { /* declined: connected without a sign-in proof */ }
+      return { pk, proof: null as SiwsProof | null };
+    });
     await AsyncStorage.setItem(KIND, 'mwa');
+    await setSignIn(proof);
     setPublicKey(pk);
     setKind('mwa');
-  }, [authorize, mwaAvailable]);
+  }, [chain, mwaAvailable, setSignIn]);
 
   const useDevWallet = useCallback(async () => {
     const kp = await loadDevKeypair(true);
     await AsyncStorage.setItem(KIND, 'dev');
+    await setSignIn(devSignIn(kp!));
     setDev(kp);
     setPublicKey(kp!.publicKey);
     setKind('dev');
-  }, []);
+  }, [setSignIn]);
 
   const disconnect = useCallback(async () => {
     await AsyncStorage.removeItem(KIND);
+    await setSignIn(null);
     if (kind === 'mwa') {
       const token = await SecureStore.getItemAsync(MWA_TOKEN);
       await SecureStore.deleteItemAsync(MWA_TOKEN);
@@ -233,7 +300,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const sig = await connection.requestAirdrop(publicKey, (cluster === 'localnet' ? 5 : 1) * LAMPORTS_PER_SOL);
     // A faucet transaction's expiry cannot be inferred from a newer blockhash.
     const result = await connection.confirmTransaction(sig, 'confirmed');
-    if (result.value.err) throw new Error(`Airdrop failed (${sig}): ${JSON.stringify(result.value.err)}`);
+    if (result.value.err) throw new Error('The faucet transaction failed. Try again later or use faucet.solana.com.');
     return sig;
   }, [cluster, connection, publicKey]);
 
@@ -246,6 +313,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     mwaAvailable,
     connectMwa,
     useDevWallet,
+    signIn,
     disconnect,
     setCluster,
     send,

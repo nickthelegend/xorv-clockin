@@ -276,11 +276,11 @@ export function JobDetail({ job, onBack, onToast }: { job: PublicKey; onBack: ()
 
       <Card style={{ paddingVertical: 10 }}>
         <Label style={{ marginTop: 6, marginBottom: 4 }}>On-chain</Label>
-        {my.posted && <ChainRow label="Escrow funded (tx)" value={my.posted} short={short(my.posted, 6)} onCopy={copy} onOpen={() => openTx(my.posted!)} />}
-        {my.refund && <ChainRow label="Refund (tx)" value={my.refund} short={short(my.refund, 6)} onCopy={copy} onOpen={() => openTx(my.refund!)} />}
-        <ChainRow label="Job account" value={j.address.toBase58()} short={short(j.address, 6)} onCopy={copy} onOpen={() => openAddr(j.address.toBase58())} />
-        {prov && <ChainRow label={`Provider · ${prov.name}`} value={prov.authority.toBase58()} short={short(prov.authority, 6)} onCopy={copy} onOpen={() => openAddr(prov.authority.toBase58())} />}
-        {j.status === STATUS.DELIVERED && <ChainRow label="Answer SHA-256" value={hex(j.resultHash)} short={`${hex(j.resultHash).slice(0, 10)}…${hex(j.resultHash).slice(-6)}`} onCopy={copy} />}
+        {my.posted && <ChainRow label="Escrow" value={my.posted} short="Funded on Solana" onCopy={copy} onOpen={() => openTx(my.posted!)} />}
+        {my.refund && <ChainRow label="Refund" value={my.refund} short="Paid back to you" onCopy={copy} onOpen={() => openTx(my.refund!)} />}
+        <ChainRow label="Job record" value={j.address.toBase58()} short="Prompt, escrow and answer on chain" onCopy={copy} onOpen={() => openAddr(j.address.toBase58())} />
+        {prov && <ChainRow label="Provider" value={prov.authority.toBase58()} short={prov.name} onCopy={copy} onOpen={() => openAddr(prov.authority.toBase58())} />}
+        {j.status === STATUS.DELIVERED && <ChainRow label="Answer fingerprint" value={hex(j.resultHash)} short={j.hashVerified ? "Matches the answer above" : "Does not match"} onCopy={copy} />}
       </Card>
 
       {j.status !== STATUS.FUNDED && <Button title="Close job · reclaim rent" kind="ghost" onPress={close} busy={busy} />}

@@ -104,7 +104,20 @@ async function ensureRegistered() {
 
 const inFlight = new Set<string>();
 
+let lastScan = 0;
+
+/**
+ * The provider account counts its open (funded) jobs, so each 3 s tick is one
+ * getAccountInfo. The filtered job scan (provider + FUNDED status) only runs
+ * when that counter says there is work, and at most every 10 s, which keeps
+ * the node under public devnet's getProgramAccounts rate limit.
+ */
 async function pollJobs() {
+  const p = await program.account.provider.fetchNullable(providerPda);
+  if (!p || p.openJobs === 0) return;
+  if (inFlight.size >= p.openJobs) return;
+  if (Date.now() - lastScan < 10_000) return;
+  lastScan = Date.now();
   const accounts = await program.account.job.all([
     { memcmp: { offset: 40, bytes: providerPda.toBase58() } },
     { memcmp: { offset: STATUS_OFFSET, bytes: anchor.utils.bytes.bs58.encode(Buffer.from([STATUS.FUNDED])) } },

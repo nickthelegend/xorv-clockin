@@ -309,18 +309,60 @@ export async function fetchConfig(c: Connection): Promise<Config | null> {
   return info ? decodeConfig(Buffer.from(info.data)) : null;
 }
 
-export async function fetchProviders(c: Connection): Promise<Provider[]> {
-  const res = await c.getProgramAccounts(PROGRAM_ID, { filters: [discFilter(ACCT.provider)] });
-  return res.map((r) => decodeProvider(r.pubkey, Buffer.from(r.account.data)));
+/** 8-byte discriminator + Provider::INIT_SPACE (fixed: name and model have max lengths). */
+export const PROVIDER_SIZE = 183;
+/** Provider discovery is the only scan left; it runs at most once a minute. */
+const DISCOVERY_MS = 60_000;
+let known: { at: number; keys: PublicKey[] } = { at: 0, keys: [] };
+
+async function getMultiple(c: Connection, keys: PublicKey[]) {
+  const out: (Awaited<ReturnType<Connection['getAccountInfo']>>)[] = [];
+  for (let k = 0; k < keys.length; k += 100) out.push(...(await c.getMultipleAccountsInfo(keys.slice(k, k + 100))));
+  return out;
 }
 
-export async function fetchJobs(c: Connection, buyer: PublicKey): Promise<Job[]> {
-  const res = await c.getProgramAccounts(PROGRAM_ID, {
-    filters: [discFilter(ACCT.job), { memcmp: { offset: 8, bytes: buyer.toBase58() } }],
-  });
-  return res
-    .map((r) => decodeJob(r.pubkey, Buffer.from(r.account.data)))
+/**
+ * Providers are PDAs keyed by their operator, so they can't be derived from a
+ * counter. Discovery is one tightly filtered getProgramAccounts (discriminator
+ * + exact size, no data) at most once a minute; every 5 s poll in between is a
+ * single getMultipleAccounts over the known provider PDAs. If discovery is
+ * rate-limited, the last known set keeps working.
+ */
+export async function fetchProviders(c: Connection): Promise<Provider[]> {
+  if (Date.now() - known.at > DISCOVERY_MS || !known.keys.length) {
+    try {
+      const res = await c.getProgramAccounts(PROGRAM_ID, {
+        filters: [{ dataSize: PROVIDER_SIZE }, discFilter(ACCT.provider)],
+        dataSlice: { offset: 0, length: 0 },
+      });
+      known = { at: Date.now(), keys: res.map((r) => r.pubkey) };
+    } catch (e) {
+      if (!known.keys.length) throw e;
+      known = { ...known, at: Date.now() - DISCOVERY_MS / 2 }; // retry in 30 s
+    }
+  }
+  const infos = await getMultiple(c, known.keys);
+  return infos.flatMap((info, i) => (info ? [decodeProvider(known.keys[i], Buffer.from(info.data))] : []));
+}
+
+/**
+ * Jobs are PDAs (buyer, nonce) and the app posts with nonce = the buyer's
+ * on-chain jobs_posted counter, so a buyer's jobs are derived and read in one
+ * getMultipleAccounts call: no getProgramAccounts scan.
+ */
+export async function fetchJobs(c: Connection, buyer: PublicKey, jobsPosted: number): Promise<Job[]> {
+  if (!jobsPosted) return [];
+  const keys = Array.from({ length: jobsPosted }, (_, i) => pda.job(buyer, BigInt(i)));
+  const infos = await getMultiple(c, keys);
+  return infos
+    .flatMap((info, i) => (info ? [decodeJob(keys[i], Buffer.from(info.data))] : []))
     .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** The nonce the next job must use: the buyer's on-chain counter. */
+export async function nextJobNonce(c: Connection, buyer: PublicKey): Promise<bigint> {
+  const u = await fetchUser(c, buyer);
+  return BigInt(u?.jobsPosted ?? 0);
 }
 
 export async function fetchJob(c: Connection, job: PublicKey): Promise<Job | null> {

@@ -16,6 +16,7 @@ import Network from './src/screens/Network';
 import Onboarding from './src/screens/Onboarding';
 import Today from './src/screens/Today';
 import { Button, C, Divider, Dot, IconButton, Label, Mark, Notice, Row, T } from './src/ui';
+import { useSeeker } from './src/seeker';
 import { humanError, useWallet, WalletProvider } from './src/wallet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -66,7 +67,8 @@ function WalletSheet({
   onToast: (m: string, k?: 'ok' | 'err') => void;
   onReplayIntro: () => void;
 }) {
-  const { publicKey, kind, cluster, setCluster, disconnect, airdrop } = useWallet();
+  const { publicKey, kind, cluster, setCluster, disconnect, airdrop, signIn } = useWallet();
+  const seeker = useSeeker(publicKey);
   const { skr, sol, refresh, error } = useData();
   const [busy, setBusy] = useState(false);
   const insets = useSafeAreaInsets();
@@ -97,6 +99,14 @@ function WalletSheet({
               ? 'Connected through Mobile Wallet Adapter. Every transaction is approved in your wallet.'
               : 'A devnet-only key generated on this device. It never leaves it.'}
           </T>
+          <T size={13} weight="600" c={signIn ? C.live : C.fg3} style={{ marginTop: 6 }}>
+            {signIn ? 'Signed in with Solana · verified on this phone' : 'Not signed in with Solana (the wallet declined the message)'}
+          </T>
+          {seeker.verified || seeker.device ? (
+            <T size={13} weight="600" c={C.live} style={{ marginTop: 4 }}>
+              {seeker.verified ? 'Seeker Genesis Token found · Seeker verified' : 'Seeker device'}
+            </T>
+          ) : null}
         </View>
 
         <Row style={{ backgroundColor: C.surface, borderRadius: 14, borderWidth: 1, borderColor: C.line, paddingLeft: 14, paddingRight: 6, paddingVertical: 6, gap: 8 }}>
@@ -152,6 +162,8 @@ function WalletSheet({
           }}
         />
 
+        {__DEV__ && (
+          <>
         <Divider />
         <Label>Network</Label>
         <Row style={{ gap: 10, marginTop: -6 }}>
@@ -182,6 +194,9 @@ function WalletSheet({
             </Pressable>
           ))}
         </Row>
+
+          </>
+        )}
 
         <Row style={{ gap: 10 }}>
           <Button
