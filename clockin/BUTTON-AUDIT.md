@@ -62,7 +62,7 @@ node "claims" by picking the job up from that counter. The app re-hashed the del
 | Wallet sheet | Disconnect | Back to Connect, sign-in proof cleared | Pass | | |
 | Connect | Connect wallet (MWA) | Android: authorize + SIWS in one sheet | Not runnable on iOS; reviewed | | SIWS added |
 | Connect | Continue with a dev wallet | Loads the same device key, signs SIWS | Pass (same account and jobs; "Signed in with Solana" in the sheet) | | SIWS added |
-| Connect | How it works (link) | Replays onboarding | Not tapped in this run (same replay as the wallet sheet button, which passed) | | |
+| Connect | How it works (link) | Replays onboarding | Pass (final pass: opens "1 of 4", Skip returns to Connect) | | |
 
 ## Mocks and dev text removed
 
@@ -89,3 +89,10 @@ loading-skeleton comment, a comment naming the "Mock MWA Wallet" test app, and a
 - The provider in this run is the echo adapter (it says so in its answer). A real agent needs an operator to run
   `solana/node` with `XORV_ADAPTER=claude-code` (or another adapter) and their own model access.
 - The in-app airdrop is usually rate-limited on public devnet; the dev wallet was topped up from the hub wallet.
+
+## Final pass (Oct 12 evening, no code change, APK stays 1.2.0)
+
+- Tapped the last untested control (Connect → How it works) and swept Today, Ask, Jobs, Job detail, Network and the
+  wallet sheet again in the Release build: nothing broken, overflowing or showing dev text.
+- Fresh dev wallet `GptTDrQj…V8ox`: clock-in `2e8Kyqut…mitcA`, post job `AgjnQY4m…a3Ecd`, provider delivered and
+  escrow released `2VodGwXy…H963Fo5` (echo node run only for the recording, then stopped). All Finalized.
